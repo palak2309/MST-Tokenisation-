@@ -35,7 +35,7 @@ function ActivityPage() {
           <tbody className="divide-y">
             {rows.map((r) => (
               <tr key={r.id}>
-                <td className="px-5 py-3 text-xs">{new Date(r.time).toLocaleString("en-IN")}</td>
+                <td className="px-5 py-3 text-xs">{new Date(r.time).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}</td>
                 <td className="px-3 py-3 font-medium">{r.kind}</td>
                 <td className="px-3 py-3 font-mono text-xs">{r.propertyId}</td>
                 <td className="px-3 py-3 text-xs text-muted-foreground">{r.detail}</td>

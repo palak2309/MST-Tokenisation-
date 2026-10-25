@@ -89,7 +89,7 @@ function Dashboard() {
                   <Pill tone={a.source === "onchain" ? "success" : "neutral"}>{a.source === "onchain" ? "On-chain" : "Simulated"}</Pill>
                 </div>
                 <p className="text-xs text-muted-foreground">{a.detail}</p>
-                <p className="mt-1 font-mono text-[11px] text-muted-foreground">{a.propertyId} · {new Date(a.time).toLocaleString("en-IN")}</p>
+                <p className="mt-1 font-mono text-[11px] text-muted-foreground">{a.propertyId} · {new Date(a.time).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}</p>
               </div>
             ))}
           </div>
