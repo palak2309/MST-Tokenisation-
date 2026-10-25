@@ -1,29 +1,34 @@
-# Welcome to your Lovable project
+# Property Verification & Fractional Investment Platform
 
-This project was built with [Lovable](https://lovable.dev).
+*Verify Before You Invest.* — a student blockchain buildathon prototype. Not a legal verification service or investment marketplace.
 
-## Build with Lovable
-
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+## Run
 ```
+bun install
+bun run dev
+bunx vitest run   # formula tests
+```
+Works fully in **Demo Mode** with fictional data — no wallet, database or chain required.
 
-## Built with
+## Pages
+Dashboard · Property Verification · Fractional Investment · Rental Income Calculator · Blockchain Activity · About the Prototype
 
-- TanStack Start
-- TypeScript
-- React
-- Tailwind CSS
+## Implemented
+- In-browser SHA-256 hashing (Web Crypto), file type/size validation (PDF/PNG/JPG/WEBP, 10 MB)
+- Hash comparison: Match / Mismatch / No Registered Reference
+- Due-diligence checklist with editable statuses, activity timeline
+- Fractional share (`contribution / pool`) and units calculator
+- Rental calculator (`net = gross − operating − maintenance − vacancy`; `allocation = net × share`)
+- MetaMask connection via ethers.js; `src/lib/blockchain.ts` service with submit/pending/success/error states
+- Solidity contract `contracts/PropertyDocumentRegistry.sol` (emits `DocumentRegistered`)
+
+## Simulated
+- All properties, documents, values, investors
+- Registrations and contributions in Demo Mode (in-memory, labelled “Simulated”, refs `DEMO-xxxx`)
+
+## Going live on MST testnet
+1. Verify the official MST network config, wallet compatibility, testnet, faucet and explorer.
+2. Compile/test/deploy the contract with Hardhat (`npx hardhat init`, copy the contract into `contracts/`). Keep deployer keys in Hardhat env only.
+3. Copy `.env.example` → `.env` and fill in verified values. The app switches to live mode when RPC URL, chain ID and contract address are set.
+
+No network parameters, addresses or transaction hashes are invented in this codebase.
