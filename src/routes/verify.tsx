@@ -44,8 +44,8 @@ function VerifyPage() {
   async function onFile(f: File | undefined) {
     reset();
     if (!f) return;
-    if (!ALLOWED_TYPES.includes(f.type)) return toast.error("Unsupported file", { description: "Use PDF, PNG, JPG or WEBP." });
-    if (f.size > MAX_BYTES) return toast.error("File too large", { description: "Maximum size is 10 MB." });
+    if (!ALLOWED_TYPES.includes(f.type)) { toast.error("Unsupported file", { description: "Use PDF, PNG, JPG or WEBP." }); return; }
+    if (f.size > MAX_BYTES) { toast.error("File too large", { description: "Maximum size is 10 MB." }); return; }
     setFile(f);
     setHashing(true);
     const h = await sha256Hex(f);

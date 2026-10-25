@@ -9,7 +9,7 @@ export interface ActivityRecord {
   /** "demo" = simulated, never a real chain record. "onchain" = confirmed on a real network. */
   source: "demo" | "onchain";
   txHash?: string;
-  explorerUrl?: string;
+  explorerUrl?: string | undefined;
 }
 
 const SEED: ActivityRecord[] = [
