@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Disclaimer, PageHeader } from "@/components/AppShell";
-import { PROPERTIES, inr } from "@/lib/data";
+import { DEFAULT_PROPERTY, PROPERTIES, inr } from "@/lib/data";
 import { rental } from "@/lib/finance";
 
 export const Route = createFileRoute("/rental")({
@@ -27,7 +27,7 @@ function Field({ label, value, onChange, suffix }: { label: string; value: numbe
 }
 
 function RentalPage() {
-  const [gross, setGross] = useState(PROPERTIES[0].monthlyRent);
+  const [gross, setGross] = useState(DEFAULT_PROPERTY.monthlyRent);
   const [operating, setOperating] = useState(4_000);
   const [maintenance, setMaintenance] = useState(3_500);
   const [vacancyPct, setVacancy] = useState(5);
@@ -49,7 +49,7 @@ function RentalPage() {
         <section className="panel space-y-4 p-5">
           <label className="block">
             <span className="text-xs font-medium">Prefill from sample property</span>
-            <select className="mt-1 w-full rounded-md border bg-card px-3 py-2 text-sm" onChange={(e) => setGross(PROPERTIES.find((p) => p.id === e.target.value)!.monthlyRent)}>
+            <select className="mt-1 w-full rounded-md border bg-card px-3 py-2 text-sm" onChange={(e) => setGross((PROPERTIES.find((p) => p.id === e.target.value) ?? DEFAULT_PROPERTY).monthlyRent)}>
               {PROPERTIES.map((p) => <option key={p.id} value={p.id}>{p.name} ({inr(p.monthlyRent)}/mo)</option>)}
             </select>
           </label>

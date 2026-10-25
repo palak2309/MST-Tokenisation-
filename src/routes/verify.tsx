@@ -4,12 +4,12 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Disclaimer, PageHeader, Pill, statusTone } from "@/components/AppShell";
-import { PROPERTIES, getProperty, inr, outstandingChecks, type DocStatus } from "@/lib/data";
+import { DEFAULT_PROPERTY, PROPERTIES, getProperty, inr, outstandingChecks, type DocStatus } from "@/lib/data";
 import { addActivity, demoRefKey, getDemoRef, setDemoRef, useActivity } from "@/lib/activity";
 import { ALLOWED_TYPES, MAX_BYTES, explorerTxUrl, isLiveConfigured, registerOnChain, sha256Hex } from "@/lib/blockchain";
 
 export const Route = createFileRoute("/verify")({
-  validateSearch: (s: Record<string, unknown>) => ({ property: typeof s.property === "string" ? s.property : undefined }),
+  validateSearch: (s: Record<string, unknown>) => ({ property: typeof s["property"] === "string" ? (s["property"] as string) : undefined }),
   head: () => ({
     meta: [
       { title: "Property Verification · Document Fingerprints" },
@@ -27,9 +27,9 @@ type TxState = { stage: "idle" | "submitting" | "pending" | "success" | "error";
 function VerifyPage() {
   const { property } = Route.useSearch();
   const navigate = useNavigate({ from: "/verify" });
-  const prop = getProperty(property ?? "") ?? PROPERTIES[0];
+  const prop = getProperty(property ?? "") ?? DEFAULT_PROPERTY;
   const [statuses, setStatuses] = useState<Record<string, DocStatus>>({});
-  const [docId, setDocId] = useState(prop.docs[0].id);
+  const [docId, setDocId] = useState(prop.docs[0]?.id ?? "");
   const [file, setFile] = useState<File | null>(null);
   const [hash, setHash] = useState<string | null>(null);
   const [hashing, setHashing] = useState(false);
@@ -37,7 +37,7 @@ function VerifyPage() {
   const [tx, setTx] = useState<TxState>({ stage: "idle" });
   const activity = useActivity().filter((a) => a.propertyId === prop.id);
 
-  const doc = prop.docs.find((d) => d.id === docId) ?? prop.docs[0];
+  const doc = prop.docs.find((d) => d.id === docId) ?? prop.docs[0]!;
   const statusOf = (id: string, fallback: DocStatus) => statuses[`${prop.id}:${id}`] ?? fallback;
   const reset = () => { setFile(null); setHash(null); setResult(null); setTx({ stage: "idle" }); };
 
@@ -92,7 +92,7 @@ function VerifyPage() {
         {PROPERTIES.map((p) => (
           <button
             key={p.id}
-            onClick={() => { navigate({ search: { property: p.id } }); setDocId(p.docs[0].id); reset(); }}
+            onClick={() => { navigate({ search: { property: p.id } }); setDocId(p.docs[0]?.id ?? ""); reset(); }}
             className={`panel min-w-56 p-3 text-left transition-colors ${p.id === prop.id ? "border-primary ring-2 ring-primary/20" : ""}`}
           >
             <p className="font-mono text-xs text-muted-foreground">{p.id}</p>

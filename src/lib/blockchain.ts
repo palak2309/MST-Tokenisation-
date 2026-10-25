@@ -5,12 +5,14 @@
  */
 import type { Eip1193Provider } from "ethers";
 
+const env = import.meta.env as unknown as Record<string, string | undefined>;
+
 export const chainConfig = {
-  rpcUrl: import.meta.env.VITE_MST_RPC_URL as string | undefined,
-  chainId: import.meta.env.VITE_MST_CHAIN_ID as string | undefined,
-  contractAddress: import.meta.env.VITE_MST_CONTRACT_ADDRESS as string | undefined,
-  explorerUrl: import.meta.env.VITE_MST_EXPLORER_URL as string | undefined,
-  networkName: (import.meta.env.VITE_MST_NETWORK_NAME as string | undefined) ?? "MST Testnet",
+  rpcUrl: env['VITE_MST_RPC_URL'],
+  chainId: env['VITE_MST_CHAIN_ID'],
+  contractAddress: env['VITE_MST_CONTRACT_ADDRESS'],
+  explorerUrl: env['VITE_MST_EXPLORER_URL'],
+  networkName: (env['VITE_MST_NETWORK_NAME']) ?? "MST Testnet",
 };
 
 export const isLiveConfigured = () =>
@@ -35,7 +37,7 @@ export async function connectWallet(): Promise<{ address: string; chainId: strin
   const provider = new BrowserProvider(eth);
   const accounts: string[] = await provider.send("eth_requestAccounts", []);
   const net = await provider.getNetwork();
-  return { address: accounts[0], chainId: net.chainId.toString() };
+  return { address: accounts[0] ?? "", chainId: net.chainId.toString() };
 }
 
 export function explorerTxUrl(txHash: string) {
@@ -58,7 +60,7 @@ export async function registerOnChain(
     throw new Error(`Wrong network. Switch your wallet to chain ID ${chainConfig.chainId}.`);
   const signer = await provider.getSigner();
   const contract = new Contract(chainConfig.contractAddress!, REGISTRY_ABI, signer);
-  const tx = await contract.registerDocument(propertyId, "0x" + hexHash);
+  const tx = await contract.getFunction("registerDocument")(propertyId, "0x" + hexHash);
   onPending(tx.hash);
   const receipt = await tx.wait();
   if (!receipt || receipt.status !== 1) throw new Error("Transaction failed on-chain.");

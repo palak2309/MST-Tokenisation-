@@ -4,7 +4,7 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Disclaimer, PageHeader, Pill } from "@/components/AppShell";
-import { PROPERTIES, inr } from "@/lib/data";
+import { DEFAULT_PROPERTY, PROPERTIES, inr } from "@/lib/data";
 import { hypotheticalUnits, investorShare } from "@/lib/finance";
 import { addActivity, useActivity } from "@/lib/activity";
 
@@ -21,9 +21,9 @@ export const Route = createFileRoute("/invest")({
 });
 
 function InvestPage() {
-  const [pid, setPid] = useState(PROPERTIES[0].id);
+  const [pid, setPid] = useState(DEFAULT_PROPERTY.id);
   const [amount, setAmount] = useState(100_000);
-  const p = PROPERTIES.find((x) => x.id === pid)!;
+  const p = (PROPERTIES.find((x) => x.id === pid) ?? DEFAULT_PROPERTY);
   const share = investorShare(amount, p.poolSize);
   const units = hypotheticalUnits(amount, p.unitPrice);
   const txs = useActivity().filter((a) => a.kind === "Contribution");

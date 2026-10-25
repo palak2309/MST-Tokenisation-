@@ -36,7 +36,7 @@ function Dashboard() {
       <PageHeader title="Dashboard" subtitle="Verify Before You Invest. Select a sample property, review its records, then explore a hypothetical investment.">
         <div className="flex flex-wrap gap-2">
           <Button asChild>
-            <Link to="/verify"><ShieldCheck className="h-4 w-4" /> Verify a Property</Link>
+            <Link to="/verify" search={{ property: undefined }}><ShieldCheck className="h-4 w-4" /> Verify a Property</Link>
           </Button>
           <Button asChild variant="outline">
             <Link to="/invest"><Coins className="h-4 w-4" /> Explore Fractional Investment</Link>
