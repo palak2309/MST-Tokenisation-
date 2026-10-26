@@ -29,6 +29,6 @@ Dashboard · Property Verification · Fractional Investment · Rental Income Cal
 ## Going live on MST testnet
 1. Verify the official MST network config, wallet compatibility, testnet, faucet and explorer.
 2. Compile/test/deploy the contract with Hardhat (`npx hardhat init`, copy the contract into `contracts/`). Keep deployer keys in Hardhat env only.
-3. Copy `.env.example` → `.env` and fill in verified values. The app switches to live mode when RPC URL, chain ID and contract address are set.
+3. Copy `.env.example` to `.env`. The supplied MST chain ID, registry address, and explorer are prefilled; verify these values before using a real transaction. The app uses the connected browser wallet for reads and writes, and enables live registry access when the chain ID and contract address are set. No RPC URL is required.
 
 No network parameters, addresses or transaction hashes are invented in this codebase.

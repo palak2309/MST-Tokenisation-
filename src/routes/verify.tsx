@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Disclaimer, PageHeader, Pill, statusTone } from "@/components/AppShell";
+import PropertyRegistry from "@/PropertyRegistry";
 import { DEFAULT_PROPERTY, PROPERTIES, getProperty, inr, outstandingChecks, type DocStatus } from "@/lib/data";
 import { addActivity, demoRefKey, getDemoRef, setDemoRef, useActivity } from "@/lib/activity";
 import { ALLOWED_TYPES, MAX_BYTES, compareOnChainFingerprint, explorerTxUrl, getRecordOnChain, isLiveConfigured, registerOnChain, sha256Hex } from "@/lib/blockchain";
@@ -238,6 +239,7 @@ function VerifyPage() {
             )}
           </section>
 
+          <PropertyRegistry />
           <section className="panel p-5">
             <h3 className="mb-3 font-semibold">Activity timeline</h3>
             <ol className="space-y-3 border-l pl-4">
