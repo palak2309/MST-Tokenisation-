@@ -73,7 +73,7 @@ export async function getRecordOnChain(propertyId: string, hexHash: string): Pro
   if (!isLiveConfigured()) throw new Error("MST network is not configured. Running in Demo Mode.");
   const fingerprint = normalizeFingerprint(hexHash);
   const { Contract, JsonRpcProvider } = await import("ethers");
-  const provider = new JsonRpcProvider(chainConfig.rpcUrl);
+  const provider = new JsonRpcProvider(chainConfig.rpcUrl!);
   const network = await provider.getNetwork();
   if (network.chainId.toString() !== chainConfig.chainId) {
     throw new Error(`Configured RPC has chain ID ${network.chainId.toString()}, expected ${chainConfig.chainId}.`);
