@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Disclaimer, PageHeader, Pill, statusTone } from "@/components/AppShell";
 import { DEFAULT_PROPERTY, PROPERTIES, getProperty, inr, outstandingChecks, type DocStatus } from "@/lib/data";
 import { addActivity, demoRefKey, getDemoRef, setDemoRef, useActivity } from "@/lib/activity";
-import { ALLOWED_TYPES, MAX_BYTES, explorerTxUrl, isLiveConfigured, registerOnChain, sha256Hex } from "@/lib/blockchain";
+import { ALLOWED_TYPES, MAX_BYTES, compareOnChainFingerprint, explorerTxUrl, getRecordOnChain, isLiveConfigured, registerOnChain, sha256Hex } from "@/lib/blockchain";
 
 export const Route = createFileRoute("/verify")({
   validateSearch: (s: Record<string, unknown>) => ({ property: typeof s["property"] === "string" ? (s["property"] as string) : undefined }),
@@ -34,12 +34,14 @@ function VerifyPage() {
   const [hash, setHash] = useState<string | null>(null);
   const [hashing, setHashing] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
+  const [comparing, setComparing] = useState(false);
+  const [comparisonSource, setComparisonSource] = useState<"onchain" | "demo" | null>(null);
   const [tx, setTx] = useState<TxState>({ stage: "idle" });
   const activity = useActivity().filter((a) => a.propertyId === prop.id);
 
   const doc = prop.docs.find((d) => d.id === docId) ?? prop.docs[0]!;
   const statusOf = (id: string, fallback: DocStatus) => statuses[`${prop.id}:${id}`] ?? fallback;
-  const reset = () => { setFile(null); setHash(null); setResult(null); setTx({ stage: "idle" }); };
+  const reset = () => { setFile(null); setHash(null); setResult(null); setComparisonSource(null); setTx({ stage: "idle" }); };
 
   async function onFile(f: File | undefined) {
     reset();
@@ -54,12 +56,36 @@ function VerifyPage() {
     addActivity({ kind: "Document hashed", propertyId: prop.id, detail: `${doc.type}: ${f.name} hashed locally`, source: "demo" });
   }
 
-  function compare() {
-    if (!hash) return;
-    const ref = getDemoRef(demoRefKey(prop.id, doc.id)) ?? doc.registeredHash;
-    const r: Result = !ref ? "No Registered Reference" : ref === hash ? "Match" : "Mismatch";
-    setResult(r);
-    addActivity({ kind: "Hash compared", propertyId: prop.id, detail: `${doc.type}: ${r}`, source: "demo" });
+  async function compare() {
+    if (!hash || comparing) return;
+    setComparing(true);
+    setResult(null);
+    try {
+      let r: Result;
+      let source: "onchain" | "demo" = "demo";
+      if (isLiveConfigured()) {
+        const candidate = await getRecordOnChain(prop.id, hash);
+        let referenceRegistered = false;
+        if (doc.registeredHash) {
+          const reference = hash.toLowerCase() === doc.registeredHash.toLowerCase()
+            ? candidate
+            : await getRecordOnChain(prop.id, doc.registeredHash);
+          referenceRegistered = reference.exists;
+        }
+        r = compareOnChainFingerprint(hash, doc.registeredHash ?? "", candidate.exists, referenceRegistered);
+        source = "onchain";
+      } else {
+        const ref = getDemoRef(demoRefKey(prop.id, doc.id)) ?? doc.registeredHash;
+        r = !ref ? "No Registered Reference" : ref.toLowerCase() === hash.toLowerCase() ? "Match" : "Mismatch";
+      }
+      setResult(r);
+      setComparisonSource(source);
+      addActivity({ kind: "Hash compared", propertyId: prop.id, detail: `${doc.type}: ${r}`, source });
+    } catch (e) {
+      toast.error("Could not check the document registry", { description: (e as Error).message });
+    } finally {
+      setComparing(false);
+    }
   }
 
   async function register() {
@@ -179,7 +205,7 @@ function VerifyPage() {
                 <p className="text-xs font-medium">SHA-256</p>
                 <p className="mt-1 break-all rounded-md bg-muted p-2 font-mono text-xs">{hash}</p>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <Button size="sm" onClick={compare}>Compare with reference</Button>
+                  <Button size="sm" onClick={compare} disabled={comparing || hashing}>{comparing ? "Checking registry…" : "Compare with reference"}</Button>
                   <Button size="sm" variant="outline" onClick={register} disabled={tx.stage === "submitting" || tx.stage === "pending"}>
                     {isLiveConfigured() ? "Register on MST" : "Register (Demo Mode)"}
                   </Button>
@@ -194,8 +220,9 @@ function VerifyPage() {
                   <p className="text-xs text-muted-foreground">
                     {result === "Match" && "The file is identical to the previously registered fingerprint. This does not confirm ownership or legal validity."}
                     {result === "Mismatch" && "The file differs from the registered fingerprint. It may be a different version or altered copy."}
-                    {result === "No Registered Reference" && "No fingerprint has been registered for this document yet. Register one, then re-upload to compare."}
+                    {result === "No Registered Reference" && "No matching registered fingerprint was found for this property. Register one, then compare again."}
                   </p>
+                  {comparisonSource && <p className="mt-2 text-[11px] uppercase tracking-wide">{comparisonSource === "onchain" ? "Checked against configured on-chain registry" : "Checked against demo reference"}</p>}
                 </div>
               </div>
             )}

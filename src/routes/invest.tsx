@@ -24,13 +24,15 @@ function InvestPage() {
   const [pid, setPid] = useState(DEFAULT_PROPERTY.id);
   const [amount, setAmount] = useState(100_000);
   const p = (PROPERTIES.find((x) => x.id === pid) ?? DEFAULT_PROPERTY);
-  const share = investorShare(amount, p.poolSize);
-  const units = hypotheticalUnits(amount, p.unitPrice);
+  const eligibleContribution = Math.min(Number.isFinite(amount) ? Math.max(0, amount) : 0, p.poolSize);
+  const exceedsPool = amount > p.poolSize;
+  const share = investorShare(eligibleContribution, p.poolSize);
+  const units = hypotheticalUnits(amount, p.unitPrice, p.poolSize);
   const txs = useActivity().filter((a) => a.kind === "Contribution");
 
   const pie = [
-    { name: "Your hypothetical contribution", value: Math.min(amount, p.poolSize) },
-    { name: "Rest of illustrative pool", value: Math.max(0, p.poolSize - amount) },
+    { name: "Your hypothetical contribution", value: eligibleContribution },
+    { name: "Rest of illustrative pool", value: Math.max(0, p.poolSize - eligibleContribution) },
   ];
 
   return (
@@ -51,8 +53,9 @@ function InvestPage() {
           </dl>
           <div>
             <label className="text-xs font-medium">Hypothetical contribution (₹)</label>
-            <input type="number" min={0} step={1000} value={amount} onChange={(e) => setAmount(Math.max(0, Number(e.target.value)))} className="mt-1 w-full rounded-md border bg-card px-3 py-2 text-sm" />
-            <input type="range" min={0} max={p.poolSize / 10} step={p.unitPrice} value={Math.min(amount, p.poolSize / 10)} onChange={(e) => setAmount(Number(e.target.value))} className="mt-3 w-full accent-primary" />
+            <input type="number" min={0} max={p.poolSize} step={1000} value={amount} aria-label="Hypothetical contribution in rupees" onChange={(e) => setAmount(Math.max(0, Number(e.target.value) || 0))} className="mt-1 w-full rounded-md border bg-card px-3 py-2 text-sm" />
+            <input type="range" min={0} max={p.poolSize} step={p.unitPrice} value={Math.min(amount, p.poolSize)} aria-label="Adjust hypothetical contribution" onChange={(e) => setAmount(Number(e.target.value))} className="mt-3 w-full accent-primary" />
+            {exceedsPool && <p role="status" className="mt-2 rounded-md border border-warning/40 bg-warning/10 p-2 text-xs text-accent-foreground">This amount exceeds the illustrative pool. Calculations below are capped at {inr(p.poolSize)}.</p>}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-lg bg-secondary p-4"><p className="text-xs text-muted-foreground">Share of pool</p><p className="text-2xl font-semibold">{(share * 100).toFixed(3)}%</p></div>
@@ -60,18 +63,18 @@ function InvestPage() {
           </div>
           <div className="rounded-lg border p-4 text-sm">
             <p className="font-semibold">Formula</p>
-            <p className="mt-1 font-mono text-xs">Investor share = {inr(amount)} / {inr(p.poolSize)} = {(share * 100).toFixed(3)}%</p>
-            <p className="font-mono text-xs">Units = floor({inr(amount)} / {inr(p.unitPrice)}) = {units}</p>
+            <p className="mt-1 font-mono text-xs">Investor share = {inr(eligibleContribution)} / {inr(p.poolSize)} = {(share * 100).toFixed(3)}%</p>
+            <p className="font-mono text-xs">Units = floor({inr(eligibleContribution)} / {inr(p.unitPrice)}) = {units}</p>
             <ul className="mt-2 list-disc pl-5 text-xs text-muted-foreground">
               <li>The pool and unit price are fictional assumptions.</li>
-              <li>Contributions above the pool size are capped at 100%.</li>
+              <li>Contributions and units are capped to the illustrative pool size.</li>
               <li>The share is a share of the pool, not legal ownership of the property.</li>
             </ul>
           </div>
           <Button
             disabled={amount <= 0}
             onClick={() => {
-              addActivity({ kind: "Contribution", propertyId: p.id, detail: `Hypothetical contribution of ${inr(amount)} → ${units} units`, source: "demo" });
+              addActivity({ kind: "Contribution", propertyId: p.id, detail: `Hypothetical contribution of ${inr(eligibleContribution)} → ${units} units`, source: "demo" });
               toast.success("Simulated contribution recorded", { description: "Demo Mode — no funds or tokens moved." });
             }}
           >
