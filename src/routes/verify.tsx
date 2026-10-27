@@ -7,7 +7,7 @@ import { Disclaimer, PageHeader, Pill, statusTone } from "@/components/AppShell"
 import PropertyRegistry from "@/PropertyRegistry";
 import { DEFAULT_PROPERTY, PROPERTIES, getProperty, inr, outstandingChecks, type DocStatus } from "@/lib/data";
 import { addActivity, demoRefKey, getDemoRef, setDemoRef, useActivity } from "@/lib/activity";
-import { ALLOWED_TYPES, MAX_BYTES, compareOnChainFingerprint, explorerTxUrl, getRecordOnChain, isLiveConfigured, registerOnChain, sha256Hex } from "@/lib/blockchain";
+import { ALLOWED_TYPES, chainConfig, MAX_BYTES, compareOnChainFingerprint, explorerTxUrl, getRecordOnChain, getRegistryConfigurationMessage, isLiveConfigured, isMainnetRegistryUnavailable, registerOnChain, sha256Hex, walletErrorMessage } from "@/lib/blockchain";
 
 export const Route = createFileRoute("/verify")({
   validateSearch: (s: Record<string, unknown>) => ({ property: typeof s["property"] === "string" ? (s["property"] as string) : undefined }),
@@ -83,7 +83,7 @@ function VerifyPage() {
       setComparisonSource(source);
       addActivity({ kind: "Hash compared", propertyId: prop.id, detail: `${doc.type}: ${r}`, source });
     } catch (e) {
-      toast.error("Could not check the document registry", { description: (e as Error).message });
+      toast.error("Could not check the document registry", { description: walletErrorMessage(e) });
     } finally {
       setComparing(false);
     }
@@ -91,6 +91,10 @@ function VerifyPage() {
 
   async function register() {
     if (!hash) return;
+    if (isMainnetRegistryUnavailable()) {
+      setTx({ stage: "error", error: getRegistryConfigurationMessage() });
+      return;
+    }
     if (!isLiveConfigured()) {
       setDemoRef(demoRefKey(prop.id, doc.id), hash);
       addActivity({ kind: "Fingerprint registered", propertyId: prop.id, detail: `${doc.type} fingerprint registered (simulated, this session only)`, source: "demo" });
@@ -104,7 +108,7 @@ function VerifyPage() {
       setTx({ stage: "success", hash: r.txHash });
       addActivity({ kind: "Fingerprint registered", propertyId: prop.id, detail: `${doc.type} fingerprint, block ${r.blockNumber}`, source: "onchain", txHash: r.txHash, explorerUrl: explorerTxUrl(r.txHash) });
     } catch (e) {
-      setTx({ stage: "error", error: (e as Error).message });
+      setTx({ stage: "error", error: walletErrorMessage(e) });
     }
   }
 
@@ -190,6 +194,11 @@ function VerifyPage() {
           <section className="panel p-5">
             <h3 className="font-semibold">Document fingerprint</h3>
             <p className="text-xs text-muted-foreground">The file is hashed in your browser. Its contents are never uploaded.</p>
+            {isMainnetRegistryUnavailable() && (
+              <p className="mt-3 rounded-md bg-muted p-3 text-xs text-muted-foreground" role="status">
+                {getRegistryConfigurationMessage()} Demo comparisons use simulated references only.
+              </p>
+            )}
             <label className="mt-4 block text-xs font-medium">Document</label>
             <select className="mt-1 w-full rounded-md border bg-card px-3 py-2 text-sm" value={doc.id} onChange={(e) => { setDocId(e.target.value); reset(); }}>
               {prop.docs.map((d) => <option key={d.id} value={d.id}>{d.type}</option>)}
@@ -207,8 +216,8 @@ function VerifyPage() {
                 <p className="mt-1 break-all rounded-md bg-muted p-2 font-mono text-xs">{hash}</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button size="sm" onClick={compare} disabled={comparing || hashing}>{comparing ? "Checking registry…" : "Compare with reference"}</Button>
-                  <Button size="sm" variant="outline" onClick={register} disabled={tx.stage === "submitting" || tx.stage === "pending"}>
-                    {isLiveConfigured() ? "Register on MST" : "Register (Demo Mode)"}
+                  <Button size="sm" variant="outline" onClick={register} disabled={tx.stage === "submitting" || tx.stage === "pending" || isMainnetRegistryUnavailable()}>
+                    {isMainnetRegistryUnavailable() ? "Mainnet contract unavailable" : isLiveConfigured() ? `Register on ${chainConfig.networkName ?? "MST"}` : "Register (Demo Mode)"}
                   </Button>
                 </div>
               </div>

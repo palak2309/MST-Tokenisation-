@@ -11,7 +11,10 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "compile:contract": "hardhat compile",
+    "test:contract": "hardhat test",
+    "deploy:mainnet": "hardhat run scripts/deploy-mainnet.ts --build-profile production --network mstMainnet"
   },
   "overrides": {
     "rolldown": "1.2.1"
@@ -72,19 +75,25 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
+    "@nomicfoundation/hardhat-ethers": "4.2.1",
+    "@nomicfoundation/hardhat-ethers-chai-matchers": "3.0.13",
+    "@nomicfoundation/hardhat-mocha": "4.0.1",
     "@testing-library/jest-dom": "^6.6.0",
     "@testing-library/react": "^16.0.0",
     "@types/node": "^22.16.5",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.2.0",
+    "chai": "6.3.0",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-prettier": "^5.2.6",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
+    "hardhat": "3.21.1",
     "jsdom": "^20.0.3",
+    "mocha": "12.0.3",
     "nitro": "3.0.260603-beta",
     "prettier": "^3.7.3",
     "typescript": "^5.8.3",

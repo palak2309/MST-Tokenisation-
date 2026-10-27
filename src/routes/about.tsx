@@ -20,7 +20,7 @@ const IMPLEMENTED = [
   "Hash comparison: Match, Mismatch or No Registered Reference",
   "Due-diligence checklist with editable review statuses",
   "Fractional contribution and rental income calculators",
-  "MetaMask wallet connection via ethers.js",
+  "BridgeKey wallet connection via EIP-6963 and ethers.js",
   "Solidity registry contract and Hardhat-ready blockchain service",
 ];
 const SIMULATED = [
@@ -53,7 +53,7 @@ function About() {
         </section>
         <section className="panel p-5 md:col-span-2 text-sm">
           <h3 className="mb-2 font-semibold">MST Blockchain readiness</h3>
-          <p className="text-muted-foreground">Network RPC URL, chain ID, contract address and explorer are read from environment variables. None are invented. Before going live, confirm the official MST network configuration, wallet compatibility, testnet, faucet and explorer, deploy the registry contract, and set those values.</p>
+          <p className="text-muted-foreground">Wallet access uses only the BridgeKey provider announced through EIP-6963 with the BridgeKey RDNS identifier. The app does not fall back to another injected wallet. Choose MST Testnet (chain ID 91562037) in BridgeKey yourself; this app will not switch networks automatically.</p>
         </section>
       </div>
       <div className="mt-6"><Disclaimer>This prototype is not a legal property-verification service or a live investment marketplace. It does not confirm ownership, verify government records, or promise returns.</Disclaimer></div>

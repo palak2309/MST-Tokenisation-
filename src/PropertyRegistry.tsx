@@ -5,11 +5,13 @@ import {
   ALLOWED_TYPES,
   chainConfig,
   explorerTxUrl,
+  getRegistryConfigurationMessage,
   getRecordOnChain,
   isLiveConfigured,
   MAX_BYTES,
   registerOnChain,
   sha256Hex,
+  walletErrorMessage,
 } from "@/lib/blockchain";
 
 type RegistryResult =
@@ -50,8 +52,7 @@ export default function PropertyRegistry() {
     if (!isLiveConfigured()) {
       setResult({
         type: "error",
-        message:
-          "The MST registry is not configured. Copy .env.example to .env and set the VITE_MST_* values.",
+        message: getRegistryConfigurationMessage(),
       });
       return;
     }
@@ -76,7 +77,7 @@ export default function PropertyRegistry() {
     } catch (error: unknown) {
       setResult({
         type: "error",
-        message: error instanceof Error ? error.message : "The registry request failed.",
+        message: walletErrorMessage(error),
       });
     } finally {
       setLoading(null);
@@ -133,8 +134,7 @@ export default function PropertyRegistry() {
 
       {!isLiveConfigured() && (
         <p className="rounded-md bg-muted p-3 text-xs text-muted-foreground">
-          Live registry actions are disabled until MST Testnet settings are configured. The existing
-          verification flow remains available in Demo Mode.
+          {getRegistryConfigurationMessage()}
         </p>
       )}
 
