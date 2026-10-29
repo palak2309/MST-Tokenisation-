@@ -77,6 +77,8 @@ export interface PropertyFinancialResults {
   netRentalYield: number;
   maximumTokenSupply: number;
   isPoolDivisible: boolean;
+  allocatedPool: number;
+  unusedPoolRemainder: number;
   disclaimer: string;
 }
 
@@ -233,11 +235,15 @@ export function calculatePropertyFinances(
     inputs.tokenisationPool,
     inputs.tokenPricePerUnit,
   );
+  const allocatedPool = maximumTokenSupply * inputs.tokenPricePerUnit;
+  const rawRemainder = inputs.tokenisationPool - allocatedPool;
+  const unusedPoolRemainder = Math.max(0, Number(rawRemainder.toFixed(4)));
 
   const isPoolDivisible =
     inputs.tokenisationPool > 0 &&
     inputs.tokenPricePerUnit > 0 &&
-    inputs.tokenisationPool % inputs.tokenPricePerUnit === 0;
+    unusedPoolRemainder === 0 &&
+    maximumTokenSupply > 0;
 
   return {
     annualGrossRent,
@@ -250,6 +256,8 @@ export function calculatePropertyFinances(
     netRentalYield,
     maximumTokenSupply,
     isPoolDivisible,
+    allocatedPool,
+    unusedPoolRemainder,
     disclaimer: FINANCIAL_DISCLAIMER,
   };
 }

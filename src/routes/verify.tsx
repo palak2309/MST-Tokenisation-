@@ -426,7 +426,7 @@ function VerifyPage() {
             )}
 
             <label className="mt-4 flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed p-6 text-center hover:bg-muted/50">
-              <FileUp className="h-6 w-6 text-gold" />
+              <FileUp className="h-6 w-6 text-primary" />
               <span className="text-sm font-medium">
                 {file ? file.name : "Choose a PDF or image"}
               </span>
@@ -560,7 +560,7 @@ function VerifyPage() {
             <ol className="space-y-3 border-l pl-4">
               {activity.slice(0, 8).map((a) => (
                 <li key={a.id} className="relative">
-                  <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-gold" />
+                  <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-[#F799B3]" />
                   <p className="text-sm font-medium">
                     {a.kind}{" "}
                     <span className="text-xs font-normal text-muted-foreground">

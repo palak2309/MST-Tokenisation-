@@ -1,12 +1,31 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import {
+  DEFAULT_MAINNET_CHAIN_ID,
+  DEFAULT_MAINNET_EXPLORER_URL,
+  DEFAULT_MAINNET_NETWORK_NAME,
+  DEFAULT_MAINNET_RPC_URL,
+  DEFAULT_TESTNET_CHAIN_ID,
+  DEFAULT_TESTNET_EXPLORER_URL,
+  DEFAULT_TESTNET_NETWORK_NAME,
+  DEFAULT_TESTNET_RPC_URL,
+  getActiveNetwork,
+  getActiveNetworkConfig,
   getNetworkStatusInfo,
   isNetworkRegistryConfigured,
   isNetworkTokenConfigured,
+  NETWORK_CONFIG,
+  onActiveNetworkChange,
+  resolveMainnetConfig,
   resolveMstNetworkConfig,
+  resolveTestnetConfig,
+  setActiveNetwork,
 } from "./contractConfig";
 
 describe("MST network profiles", () => {
+  beforeEach(() => {
+    setActiveNetwork("testnet");
+  });
+
   it("preserves the existing Testnet settings and legacy Testnet aliases", () => {
     const config = resolveMstNetworkConfig({
       VITE_MST_NETWORK: "testnet",
@@ -26,6 +45,40 @@ describe("MST network profiles", () => {
       tokenContractAddress: undefined,
       explorerUrl: "https://testnet.mstscan.com/",
     });
+  });
+
+  it("resolves default testnet config with correct chain ID 91562037", () => {
+    const config = resolveTestnetConfig({});
+    expect(config.network).toBe("testnet");
+    expect(config.chainId).toBe(DEFAULT_TESTNET_CHAIN_ID);
+    expect(config.chainId).toBe("91562037");
+    expect(config.networkName).toBe(DEFAULT_TESTNET_NETWORK_NAME);
+    expect(config.rpcUrl).toBe(DEFAULT_TESTNET_RPC_URL);
+    expect(config.explorerUrl).toBe(DEFAULT_TESTNET_EXPLORER_URL);
+  });
+
+  it("resolves default mainnet config with correct chain ID 4646", () => {
+    const config = resolveMainnetConfig({});
+    expect(config.network).toBe("mainnet");
+    expect(config.chainId).toBe(DEFAULT_MAINNET_CHAIN_ID);
+    expect(config.chainId).toBe("4646");
+    expect(config.networkName).toBe(DEFAULT_MAINNET_NETWORK_NAME);
+    expect(config.rpcUrl).toBe(DEFAULT_MAINNET_RPC_URL);
+    expect(config.explorerUrl).toBe(DEFAULT_MAINNET_EXPLORER_URL);
+  });
+
+  it("strictly isolates Mainnet: never falls back to Testnet contract addresses", () => {
+    const mainnetConfig = resolveMainnetConfig({
+      VITE_MST_CONTRACT_ADDRESS: "0xTestnetRegistry123",
+      VITE_MST_TOKEN_CONTRACT_ADDRESS: "0xTestnetToken123",
+      VITE_MST_TESTNET_CONTRACT_ADDRESS: "0xTestnetRegistryExplicit",
+      VITE_MST_TESTNET_TOKEN_CONTRACT_ADDRESS: "0xTestnetTokenExplicit",
+    });
+
+    expect(mainnetConfig.contractAddress).toBeUndefined();
+    expect(mainnetConfig.tokenContractAddress).toBeUndefined();
+    expect(isNetworkRegistryConfigured(mainnetConfig)).toBe(false);
+    expect(isNetworkTokenConfigured(mainnetConfig)).toBe(false);
   });
 
   it("selects Mainnet values without falling back to legacy Testnet values", () => {
@@ -71,8 +124,56 @@ describe("MST network profiles", () => {
       chainId: undefined,
       rpcUrl: undefined,
       contractAddress: undefined,
+      tokenContractAddress: undefined,
       explorerUrl: undefined,
     });
+  });
+});
+
+describe("Active network state management & dynamic config", () => {
+  beforeEach(() => {
+    setActiveNetwork("testnet");
+  });
+
+  it("defaults active network to testnet", () => {
+    expect(getActiveNetwork()).toBe("testnet");
+    const activeConfig = getActiveNetworkConfig();
+    expect(activeConfig.network).toBe("testnet");
+    expect(activeConfig.chainId).toBe("91562037");
+  });
+
+  it("updates active network and notifies listeners on change", () => {
+    const listener = vi.fn();
+    const unsubscribe = onActiveNetworkChange(listener);
+
+    try {
+      setActiveNetwork("mainnet");
+      expect(getActiveNetwork()).toBe("mainnet");
+      expect(listener).toHaveBeenCalledWith("mainnet");
+      expect(getActiveNetworkConfig().network).toBe("mainnet");
+      expect(getActiveNetworkConfig().chainId).toBe("4646");
+
+      // Switching back to testnet
+      setActiveNetwork("testnet");
+      expect(getActiveNetwork()).toBe("testnet");
+      expect(listener).toHaveBeenCalledWith("testnet");
+      expect(getActiveNetworkConfig().chainId).toBe("91562037");
+    } finally {
+      unsubscribe();
+    }
+  });
+
+  it("NETWORK_CONFIG dynamic getters reflect the active network selection", () => {
+    setActiveNetwork("testnet");
+    expect(NETWORK_CONFIG.network).toBe("testnet");
+    expect(NETWORK_CONFIG.chainId).toBe("91562037");
+
+    setActiveNetwork("mainnet");
+    expect(NETWORK_CONFIG.network).toBe("mainnet");
+    expect(NETWORK_CONFIG.chainId).toBe("4646");
+
+    setActiveNetwork("testnet");
+    expect(NETWORK_CONFIG.network).toBe("testnet");
   });
 });
 

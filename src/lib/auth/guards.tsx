@@ -12,7 +12,7 @@ export function RoleBadge({ role }: { role: AppRole | null }) {
     ADMIN: "bg-red-500/15 text-red-500 border-red-500/30",
     PROPERTY_ISSUER: "bg-blue-500/15 text-blue-500 border-blue-500/30",
     COMPLIANCE_OFFICER: "bg-purple-500/15 text-purple-500 border-purple-500/30",
-    INVESTOR: "bg-emerald-500/15 text-emerald-500 border-emerald-500/30",
+    INVESTOR: "bg-[#C9B8E8]/35 text-[#202938] border-[#C9B8E8]/70",
     EMERGENCY_PAUSER: "bg-amber-500/15 text-amber-500 border-amber-500/30",
   };
 

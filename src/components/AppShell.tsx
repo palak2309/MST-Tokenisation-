@@ -16,8 +16,9 @@ import {
   X,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { NetworkSelector } from "./NetworkSelector";
 import { WalletButton } from "./WalletButton";
-import { getNetworkStatusInfo, NETWORK_CONFIG } from "@/contractConfig";
+import { useNetwork } from "@/contractConfig";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { RoleBadge } from "@/lib/auth/guards";
 import type { AppRole } from "@/lib/auth/types";
@@ -93,7 +94,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             onClick={onNavigate}
             className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
               active
-                ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
+                ? "bg-[#F799B3] text-[#202938] font-bold shadow-sm"
                 : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
             }`}
           >
@@ -109,7 +110,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 function Brand({ inHeader = false }: { inHeader?: boolean }) {
   return (
     <Link to="/" className="flex items-center gap-2">
-      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gold/15 text-gold">
+      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#F799B3] text-[#202938] font-bold shadow-sm">
         <Building2 className="h-5 w-5" />
       </div>
       <div>
@@ -134,7 +135,7 @@ function Brand({ inHeader = false }: { inHeader?: boolean }) {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
-  const networkStatus = getNetworkStatusInfo(NETWORK_CONFIG);
+  const { statusInfo, isMainnet, setNetwork } = useNetwork();
   const { user, isAuthenticated, logout } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isAuthPage = pathname === "/login" || pathname === "/signup";
@@ -145,12 +146,24 @@ export function AppShell({ children }: { children: ReactNode }) {
         <header className="sticky top-0 z-30 flex items-center justify-between border-b bg-background/90 px-4 py-3 backdrop-blur sm:px-8">
           <Brand inHeader />
           <div className="flex items-center gap-3">
-            <div title={networkStatus.description} className="hidden sm:block">
-              <Pill tone={networkStatus.tone}>{networkStatus.label}</Pill>
+            <NetworkSelector />
+            <div title={statusInfo.description} className="hidden sm:block">
+              <Pill tone={statusInfo.tone}>{statusInfo.label}</Pill>
             </div>
             <WalletButton />
           </div>
         </header>
+
+        {isMainnet && (
+          <div
+            role="alert"
+            className="border-b border-amber-500/40 bg-amber-500/10 px-4 py-2 text-xs text-amber-900 dark:text-amber-200 text-center"
+          >
+            <span>
+              <strong>MST Mainnet Active (Chain ID 4646):</strong> Live operations use real MST.
+            </span>
+          </div>
+        )}
 
         <main className="flex-1 flex flex-col items-center justify-center px-4 py-8 sm:py-12">
           {children}
@@ -184,7 +197,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </p>
             <Link
               to="/dashboard"
-              className="inline-block text-[11px] text-gold hover:underline font-medium pt-0.5"
+              className="inline-block text-[11px] text-[#F799B3] hover:underline font-semibold pt-0.5"
             >
               Open Role Hub →
             </Link>
@@ -207,8 +220,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             <Menu className="h-5 w-5" />
           </button>
-          <div title={networkStatus.description}>
-            <Pill tone={networkStatus.tone}>{networkStatus.label}</Pill>
+          <NetworkSelector />
+          <div title={statusInfo.description} className="hidden md:block">
+            <Pill tone={statusInfo.tone}>{statusInfo.label}</Pill>
           </div>
         </div>
 
@@ -243,6 +257,31 @@ export function AppShell({ children }: { children: ReactNode }) {
           <WalletButton />
         </div>
       </header>
+
+      {isMainnet && (
+        <div
+          role="alert"
+          className="border-b border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-900 dark:text-amber-200"
+        >
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+              <span>
+                <strong>MST Mainnet Active (Chain ID 4646):</strong> Live operations broadcast
+                permanent on-chain records and consume real MST. Verify all parameters carefully in
+                BridgeKey before signing.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setNetwork("testnet")}
+              className="shrink-0 font-semibold underline hover:no-underline text-amber-800 dark:text-amber-300 text-xs cursor-pointer"
+            >
+              Switch to Testnet
+            </button>
+          </div>
+        </div>
+      )}
 
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden">
@@ -317,11 +356,11 @@ export function Disclaimer({ children }: { children?: ReactNode }) {
 }
 
 const TONES = {
-  primary: "bg-primary/10 text-primary border-primary/30",
-  success: "bg-success/12 text-success border-success/30",
-  warning: "bg-warning/15 text-accent-foreground border-warning/40",
+  primary: "bg-[#F799B3]/25 text-[#202938] border-[#F799B3]/50 font-semibold",
+  success: "bg-[#1E6B52]/15 text-[#1E6B52] border-[#1E6B52]/30 font-semibold",
+  warning: "bg-amber-500/15 text-amber-900 dark:text-amber-200 border-amber-500/40",
   destructive: "bg-destructive/10 text-destructive border-destructive/30",
-  neutral: "bg-muted text-muted-foreground border-border",
+  neutral: "bg-muted text-foreground border-border",
 } as const;
 
 export function Pill({

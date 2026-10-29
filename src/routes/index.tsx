@@ -123,8 +123,10 @@ function Dashboard() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {stats.map(({ label, value, icon: Icon }) => (
           <div key={label} className="panel p-5">
-            <Icon className="h-5 w-5 text-gold" />
-            <p className="mt-3 text-2xl font-semibold">{value}</p>
+            <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#C9B8E8]/35 text-[#202938]">
+              <Icon className="h-5 w-5 text-[#202938]" />
+            </div>
+            <p className="text-2xl font-semibold">{value}</p>
             <p className="text-xs text-muted-foreground">{label}</p>
           </div>
         ))}

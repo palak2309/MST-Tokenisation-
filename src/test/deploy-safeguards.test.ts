@@ -26,7 +26,13 @@ import {
   ISSUER_ROLE,
   ISSUER_ROLE_HASH,
   DEFAULT_ADMIN_ROLE,
+  isDirectExecution as isDirectGrantExecution,
 } from "../../scripts/grant-issuer-role";
+import {
+  validateTestnetChainId as validateCheckTestnetChainId,
+  validateAddress as validateCheckAddress,
+  isDirectExecution as isDirectCheckExecution,
+} from "../../scripts/check-testnet-wallet";
 import { PROPERTY_TOKEN_ABI } from "../contractConfig";
 
 describe("MST Testnet PropertyToken Deployment & Role Grant Safeguards", () => {
@@ -370,6 +376,100 @@ describe("MST Testnet PropertyToken Deployment & Role Grant Safeguards", () => {
       expect(isDirectExecution("", ["node", "scripts/deploy-testnet-token.ts"], cleanEnv)).toBe(
         false,
       );
+    });
+  });
+
+  describe("Read-Only Testnet Wallet Check (check-testnet-wallet)", () => {
+    const checkScriptMetaUrl = pathToFileURL(resolve("scripts/check-testnet-wallet.ts")).href;
+    const cleanEnv: NodeJS.ProcessEnv = { NODE_ENV: "production" };
+    const isMockAddress = (addr: string) => /^0x[a-fA-F0-9]{40}$/.test(addr);
+
+    it("validates testnet chain ID 91562037 strictly", () => {
+      expect(validateCheckTestnetChainId(91562037n)).toBe(true);
+      expect(validateCheckTestnetChainId(1n)).toBe(false);
+      expect(validateCheckTestnetChainId(4646n)).toBe(false);
+    });
+
+    it("validates wallet addresses strictly rejecting zero address", () => {
+      expect(
+        validateCheckAddress("0x14791697260E4c9A71f18484C9f997B308e59325", isMockAddress),
+      ).toBe(true);
+      expect(
+        validateCheckAddress("0x0000000000000000000000000000000000000000", isMockAddress),
+      ).toBe(false);
+      expect(validateCheckAddress("", isMockAddress)).toBe(false);
+      expect(validateCheckAddress(undefined, isMockAddress)).toBe(false);
+    });
+
+    it("detects direct Hardhat 3 CLI execution for check-testnet-wallet", () => {
+      const argv = [
+        "node",
+        "/node_modules/hardhat/dist/src/cli.js",
+        "run",
+        "--no-compile",
+        "scripts/check-testnet-wallet.ts",
+        "--network",
+        "mstTestnet",
+      ];
+      expect(isDirectCheckExecution(checkScriptMetaUrl, argv, cleanEnv)).toBe(true);
+    });
+
+    it("never executes automatically during test runs", () => {
+      expect(isDirectCheckExecution(checkScriptMetaUrl)).toBe(false);
+    });
+  });
+
+  describe("Direct Execution Guard for Role Grant (grant-issuer-role)", () => {
+    const grantScriptMetaUrl = pathToFileURL(resolve("scripts/grant-issuer-role.ts")).href;
+    const cleanEnv: NodeJS.ProcessEnv = { NODE_ENV: "production" };
+
+    it("detects direct Hardhat 3 CLI execution for grant-issuer-role", () => {
+      const argv = [
+        "node",
+        "/node_modules/hardhat/dist/src/cli.js",
+        "run",
+        "--no-compile",
+        "scripts/grant-issuer-role.ts",
+        "--network",
+        "mstTestnet",
+      ];
+      expect(isDirectGrantExecution(grantScriptMetaUrl, argv, cleanEnv)).toBe(true);
+    });
+
+    it("detects direct Node.js execution where argv[1] is the script", () => {
+      const argv = ["node", "scripts/grant-issuer-role.ts"];
+      expect(isDirectGrantExecution(grantScriptMetaUrl, argv, cleanEnv)).toBe(true);
+    });
+
+    it("rejects execution when Hardhat runs a different script", () => {
+      const argv = [
+        "node",
+        "/node_modules/hardhat/dist/src/cli.js",
+        "run",
+        "scripts/deploy-testnet-token.ts",
+        "--network",
+        "mstTestnet",
+      ];
+      expect(isDirectGrantExecution(grantScriptMetaUrl, argv, cleanEnv)).toBe(false);
+    });
+
+    it("never executes automatically during test runs", () => {
+      expect(isDirectGrantExecution(grantScriptMetaUrl)).toBe(false);
+      expect(
+        isDirectGrantExecution(grantScriptMetaUrl, ["node", "scripts/grant-issuer-role.ts"], {
+          VITEST: "true",
+        }),
+      ).toBe(false);
+      expect(
+        isDirectGrantExecution(grantScriptMetaUrl, ["node", "scripts/grant-issuer-role.ts"], {
+          HARDHAT_TEST: "true",
+        }),
+      ).toBe(false);
+      expect(
+        isDirectGrantExecution(grantScriptMetaUrl, ["node", "scripts/grant-issuer-role.ts"], {
+          NODE_ENV: "test",
+        }),
+      ).toBe(false);
     });
   });
 });

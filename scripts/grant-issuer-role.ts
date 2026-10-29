@@ -1,5 +1,7 @@
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 import { network } from "hardhat";
 import "@nomicfoundation/hardhat-ethers";
 
@@ -86,6 +88,75 @@ export function validateTokenAddress(
 
 export function validateGrantConfirmationPhrase(input: string): boolean {
   return input.trim() === GRANT_CONFIRMATION_PHRASE;
+}
+
+export function normalizeScriptPath(filePath: string): string {
+  try {
+    return path.resolve(filePath).toLowerCase().replace(/\\/g, "/");
+  } catch {
+    return "";
+  }
+}
+
+export function matchesScriptPath(arg: string, targetNormalized: string): boolean {
+  if (!arg || typeof arg !== "string" || arg.startsWith("-")) {
+    return false;
+  }
+  const normalizedArg = normalizeScriptPath(arg);
+  if (!normalizedArg) return false;
+  if (normalizedArg === targetNormalized) return true;
+  if (`${normalizedArg}.ts` === targetNormalized || `${normalizedArg}.js` === targetNormalized) {
+    return true;
+  }
+  return false;
+}
+
+export function isDirectExecution(
+  importMetaUrl: string,
+  argv: string[] = process.argv,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  // Never execute during test runs or test environments
+  if (env["VITEST"] === "true" || env["HARDHAT_TEST"] === "true" || env["NODE_ENV"] === "test") {
+    return false;
+  }
+
+  if (!importMetaUrl || !Array.isArray(argv) || argv.length < 2) {
+    return false;
+  }
+
+  let targetPath: string;
+  try {
+    targetPath = fileURLToPath(importMetaUrl);
+  } catch {
+    return false;
+  }
+
+  const targetNormalized = normalizeScriptPath(targetPath);
+  if (!targetNormalized) {
+    return false;
+  }
+
+  // 1. Direct Node.js execution: node <script> (argv[1] points directly to the script)
+  const directArg = argv[1];
+  if (directArg && matchesScriptPath(directArg, targetNormalized)) {
+    return true;
+  }
+
+  // 2. Hardhat CLI runner: hardhat run [--no-compile] <script> [--network ...]
+  const isHardhatRunner = argv.some(
+    (arg) => typeof arg === "string" && arg.toLowerCase().includes("hardhat"),
+  );
+  const isHardhatRunTask = argv.includes("run");
+
+  if (isHardhatRunner) {
+    return (
+      isHardhatRunTask && argv.slice(2).some((arg) => matchesScriptPath(arg, targetNormalized))
+    );
+  }
+
+  // 3. Fallback for custom or direct script runners where the script is passed in argv
+  return argv.slice(2).some((arg) => matchesScriptPath(arg, targetNormalized));
 }
 
 async function main() {
@@ -285,7 +356,8 @@ async function main() {
   );
 }
 
-if (process.argv[1]?.includes("grant-issuer-role")) {
+// Only execute automatically when run directly as a script or via Hardhat's run task
+if (isDirectExecution(import.meta.url)) {
   main().catch((error: unknown) => {
     const message = error instanceof Error ? error.message : "Unexpected role grant failure.";
     console.error("\nRole grant halted:", message);

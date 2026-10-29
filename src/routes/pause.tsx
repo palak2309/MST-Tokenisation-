@@ -224,7 +224,7 @@ function EmergencyPausePage() {
             </span>
             <p className="text-[11px] text-muted-foreground">
               {role === "EMERGENCY_PAUSER" || role === "ADMIN" ? (
-                <span className="text-emerald-500 font-medium">
+                <span className="text-success font-semibold">
                   ✓ Authorized platform role: {role}
                 </span>
               ) : (
@@ -246,7 +246,7 @@ function EmergencyPausePage() {
                   Connect BridgeKey wallet to check on-chain role
                 </span>
               ) : roles.isPauser ? (
-                <span className="text-emerald-500 font-medium">
+                <span className="text-success font-semibold">
                   ✓ Wallet ({account.slice(0, 6)}...{account.slice(-4)}) holds PAUSER_ROLE
                 </span>
               ) : (
@@ -301,7 +301,7 @@ function EmergencyPausePage() {
                 (role !== "EMERGENCY_PAUSER" && role !== "ADMIN")
               }
               onClick={() => handleTogglePause(false)}
-              className="gap-2 text-emerald-600 hover:text-emerald-700"
+              className="gap-2 text-primary hover:bg-[#C9B8E8]/20 font-semibold"
             >
               {pausing && contractPaused === true ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

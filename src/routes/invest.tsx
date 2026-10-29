@@ -245,20 +245,20 @@ function InvestPage() {
                         outerRadius={85}
                         paddingAngle={2}
                       >
-                        <Cell fill="var(--gold)" />
-                        <Cell fill="var(--primary)" />
+                        <Cell fill="var(--pink)" />
+                        <Cell fill="var(--lavender)" />
                       </Pie>
                       <Tooltip formatter={(v: number) => inr(v)} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="flex justify-center gap-4 text-xs">
-                  <span className="flex items-center gap-1">
-                    <span className="h-2 w-2 rounded-full bg-gold" />
+                <div className="flex justify-center gap-4 text-xs font-medium">
+                  <span className="flex items-center gap-1.5 text-foreground">
+                    <span className="h-2.5 w-2.5 rounded-full bg-pink border border-pink/60" />
                     Your contribution
                   </span>
-                  <span className="flex items-center gap-1">
-                    <span className="h-2 w-2 rounded-full bg-primary" />
+                  <span className="flex items-center gap-1.5 text-foreground">
+                    <span className="h-2.5 w-2.5 rounded-full bg-lavender border border-lavender/60" />
                     Rest of pool
                   </span>
                 </div>

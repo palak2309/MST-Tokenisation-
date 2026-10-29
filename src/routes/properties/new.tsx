@@ -8,6 +8,7 @@ import {
   Check,
   CheckCircle2,
   Coins,
+  ExternalLink,
   FileCheck2,
   FileText,
   HelpCircle,
@@ -18,8 +19,9 @@ import {
   ShieldCheck,
   Trash2,
   Upload,
+  Wallet,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Disclaimer, PageHeader, Pill } from "@/components/AppShell";
@@ -35,7 +37,22 @@ import {
   saveUserProperty,
   updateUserProperty,
 } from "@/lib/propertyStore";
-import { ALLOWED_TYPES, MAX_BYTES, sha256Hex } from "@/lib/blockchain";
+import {
+  ALLOWED_TYPES,
+  chainConfig,
+  checkUserRolesOnChain,
+  connectWallet,
+  explorerTxUrl,
+  getPropertyTokenOnChain,
+  isTokenLiveConfigured,
+  MAX_BYTES,
+  parseContractError,
+  registerPropertyTokenOnChain,
+  sha256Hex,
+  walletErrorMessage,
+  type OnChainPropertyTokenInfo,
+  type UserRoleStatus,
+} from "@/lib/blockchain";
 import { addActivity } from "@/lib/activity";
 import { inr, type Property, type PropertyDoc } from "@/lib/data";
 import prop1 from "@/assets/prop1.jpg";
@@ -44,20 +61,15 @@ import prop3 from "@/assets/prop3.jpg";
 import { requireAuthLoader } from "@/lib/auth/routeAuth";
 import { ProtectedRoute } from "@/lib/auth/guards";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { useNetwork } from "@/contractConfig";
+import { id as keccak256Id } from "ethers";
+import {
+  type FormErrors,
+  type PropertyFormInputs,
+  validatePropertyForm,
+} from "@/lib/propertyValidation";
 
-interface FormErrors {
-  propertyId?: string;
-  name?: string;
-  location?: string;
-  indicativeValue?: string;
-  monthlyRent?: string;
-  vacancyPct?: string;
-  monthlyOperating?: string;
-  monthlyMaintenance?: string;
-  capRatePct?: string;
-  unitPrice?: string;
-  tokenPool?: string;
-}
+export type { FormErrors, PropertyFormInputs };
 
 interface NewPropertySearch {
   edit?: string;
@@ -114,6 +126,7 @@ interface UploadedDocItem {
   fileSize: number;
   fileType: string;
   sha256: string;
+  registeredHash?: string;
   status: "Hash calculated";
   date: string;
 }
@@ -150,6 +163,129 @@ function AddPropertyPage() {
   const [previewMode, setPreviewMode] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { isTestnet, isMainnet } = useNetwork();
+
+  // On-Chain & BridgeKey states
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [walletChainId, setWalletChainId] = useState<string | null>(null);
+  const [userRoles, setUserRoles] = useState<UserRoleStatus | null>(null);
+  const [connectingWallet, setConnectingWallet] = useState(false);
+  const [checkingOnChain, setCheckingOnChain] = useState(false);
+  const [onChainTokenInfo, setOnChainTokenInfo] = useState<OnChainPropertyTokenInfo | null>(null);
+
+  // On-chain registration transaction states
+  const [txStage, setTxStage] = useState<"idle" | "confirming" | "pending" | "confirmed" | "error">(
+    "idle",
+  );
+  const [txHash, setTxHash] = useState<string | null>(null);
+  const [txBlockNumber, setTxBlockNumber] = useState<number | null>(null);
+  const [txError, setTxError] = useState<string | null>(null);
+  const [confirmedTokenId, setConfirmedTokenId] = useState<bigint | null>(null);
+
+  const computedPropertyRef = useMemo(() => {
+    try {
+      return propertyId.trim() ? keccak256Id(propertyId.trim()) : "";
+    } catch {
+      return "";
+    }
+  }, [propertyId]);
+
+  function handleLoadPuneDemoPreset() {
+    setPropertyId("MST-DEMO-PUNE-002");
+    setName("Pune Baner Tech Park - Unit B");
+    setPropertyType("commercial");
+    setLocation("Baner, Pune, Maharashtra");
+    setIndicativeValue(15_000_000);
+    setMonthlyRent(65_000);
+    setVacancyPct(5);
+    setMonthlyOperating(5_000);
+    setMonthlyMaintenance(4_000);
+    setCapRatePct(6.0);
+    setTokenPool(1_500_000); // 1,500,000 / 1,000 = 1,500 whole units
+    setUnitPrice(1_000); // 1,000 INR = 100,000 paise
+    setDescription(
+      "Commercial tech park fractional unit in Baner, Pune for on-chain MST Testnet tokenisation.",
+    );
+    setDocs([
+      {
+        id: "DOC-PUN-002-1",
+        category: "Sale deed / title",
+        type: "Registered sale deed",
+        reference: "SD-DEMO-PUN-002",
+        fileName: "Registered-Sale-Deed-PUNE-002.pdf",
+        fileSize: 482000,
+        fileType: "application/pdf",
+        sha256: "9f2a6c1e7b3d4e58a0c2b9f1d6e8a7c3b5f0e9d2a4c6b8e1f3a5c7d9e0b2a4c6",
+        status: "Hash calculated",
+        date: new Date().toISOString().split("T")[0]!,
+      },
+    ]);
+    setErrors({});
+    toast.success("Loaded MST-DEMO-PUNE-002 Preset", {
+      description: "Property ID: MST-DEMO-PUNE-002 · Max Supply: 1,500 units · Unit Price: ₹1,000",
+    });
+  }
+
+  function handleAttachDemoDocument() {
+    const demoDoc: UploadedDocItem = {
+      id: `DOC-PUN-002-${Date.now().toString().slice(-4)}`,
+      category: "Sale deed / title",
+      type: "Registered sale deed",
+      reference: "SD-DEMO-PUN-002",
+      fileName: "Registered-Sale-Deed-PUNE-002.pdf",
+      fileSize: 482000,
+      fileType: "application/pdf",
+      sha256: "9f2a6c1e7b3d4e58a0c2b9f1d6e8a7c3b5f0e9d2a4c6b8e1f3a5c7d9e0b2a4c6",
+      status: "Hash calculated",
+      date: new Date().toISOString().split("T")[0]!,
+    };
+    setDocs((prev) => (prev.length === 0 ? [demoDoc] : prev));
+    toast.success("Attached Pune Demo Document with verified SHA-256 fingerprint.");
+  }
+
+  const checkOnChainStatus = useCallback(async (pid: string) => {
+    if (!pid.trim() || !isTokenLiveConfigured()) return;
+    setCheckingOnChain(true);
+    try {
+      const info = await getPropertyTokenOnChain(pid.trim());
+      setOnChainTokenInfo(info);
+      if (info.exists) {
+        setConfirmedTokenId(info.tokenId);
+        setTxStage("confirmed");
+      }
+    } catch (err) {
+      console.warn("Could not query on-chain property:", err);
+    } finally {
+      setCheckingOnChain(false);
+    }
+  }, []);
+
+  const handleConnectWallet = useCallback(async () => {
+    setConnectingWallet(true);
+    try {
+      const conn = await connectWallet();
+      setWalletAddress(conn.address);
+      setWalletChainId(conn.chainId);
+      const roleStatus = await checkUserRolesOnChain(conn.address);
+      setUserRoles(roleStatus);
+      toast.success("BridgeKey connected", {
+        description: `Connected: ${conn.address.slice(0, 8)}… (Chain ${conn.chainId})`,
+      });
+    } catch (err) {
+      toast.error("BridgeKey connection failed", {
+        description: walletErrorMessage(err),
+      });
+    } finally {
+      setConnectingWallet(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (previewMode && propertyId.trim()) {
+      checkOnChainStatus(propertyId.trim());
+    }
+  }, [previewMode, propertyId, checkOnChainStatus]);
 
   // Initialize or load edit data
   useEffect(() => {
@@ -217,62 +353,20 @@ function AddPropertyPage() {
 
   // Validation function
   function validateForm(): boolean {
-    const errs: FormErrors = {};
-
-    if (!propertyId.trim()) {
-      errs.propertyId = "Property ID is required.";
-    } else {
-      const bytes = new TextEncoder().encode(propertyId.trim()).length;
-      if (bytes < 1 || bytes > 64) {
-        errs.propertyId = "Property ID must be between 1 and 64 UTF-8 bytes.";
-      } else if (!/^[a-zA-Z0-9_-]+$/.test(propertyId.trim())) {
-        errs.propertyId = "ID may only contain letters, numbers, hyphens, and underscores.";
-      } else if (!isEditing && isSampleProperty(propertyId.trim())) {
-        errs.propertyId = "This ID matches a protected sample property. Choose a different ID.";
-      } else if (!isEditing && getPropertyById(propertyId.trim())) {
-        errs.propertyId = `A property with ID "${propertyId.trim()}" already exists.`;
-      }
-    }
-
-    if (!name.trim()) errs.name = "Property name is required.";
-    if (!location.trim()) errs.location = "Full location is required.";
-
-    if (!indicativeValue || indicativeValue <= 0) {
-      errs.indicativeValue = "Indicative market value must be greater than zero.";
-    }
-
-    if (monthlyRent < 0) {
-      errs.monthlyRent = "Monthly rent cannot be negative.";
-    }
-
-    if (vacancyPct < 0 || vacancyPct > 100) {
-      errs.vacancyPct = "Vacancy allowance must be between 0% and 100%.";
-    }
-
-    if (monthlyOperating < 0) {
-      errs.monthlyOperating = "Operating expenses cannot be negative.";
-    }
-
-    if (monthlyMaintenance < 0) {
-      errs.monthlyMaintenance = "Maintenance expenses cannot be negative.";
-    }
-
-    if (capRatePct <= 0) {
-      errs.capRatePct = "Cap rate must be greater than 0% for valuation.";
-    }
-
-    if (unitPrice <= 0) {
-      errs.unitPrice = "Token unit price must be greater than zero.";
-    }
-
-    if (tokenPool <= 0) {
-      errs.tokenPool = "Tokenisation pool must be greater than zero.";
-    } else if (tokenPool < unitPrice) {
-      errs.tokenPool = `Tokenisation pool must be at least the price of one unit (${inr(unitPrice)}).`;
-    } else if (tokenPool % unitPrice !== 0) {
-      errs.tokenPool = `Tokenisation pool must divide evenly by token price (${inr(unitPrice)}) for whole tokens. Suggested: ${inr(Math.floor(tokenPool / unitPrice) * unitPrice)}.`;
-    }
-
+    const errs = validatePropertyForm({
+      propertyId,
+      name,
+      location,
+      indicativeValue,
+      monthlyRent,
+      vacancyPct,
+      monthlyOperating,
+      monthlyMaintenance,
+      capRatePct,
+      unitPrice,
+      tokenPool,
+      isEditing,
+    });
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -431,6 +525,156 @@ function AddPropertyPage() {
     }
   }
 
+  async function handleRegisterOnChain() {
+    if (chainConfig.network !== "testnet") {
+      toast.error("MST Testnet Required", {
+        description:
+          "On-chain registration is restricted to MST Testnet (Chain ID 91562037). Mainnet transactions are disabled.",
+      });
+      return;
+    }
+
+    const docHash = docs[0]?.sha256 || docs[0]?.registeredHash;
+    if (!docHash) {
+      toast.error("Document fingerprint required", {
+        description:
+          "At least one document with a valid SHA-256 fingerprint is required to register on-chain.",
+      });
+      return;
+    }
+
+    if (role !== "PROPERTY_ISSUER" && role !== "ADMIN") {
+      toast.error("Platform authorization required", {
+        description:
+          "Only users with PROPERTY_ISSUER or ADMIN roles can submit property registration proposals.",
+      });
+      return;
+    }
+
+    // Connect wallet if not already connected
+    let currentAccount = walletAddress;
+    if (!currentAccount) {
+      try {
+        const conn = await connectWallet();
+        currentAccount = conn.address;
+        setWalletAddress(conn.address);
+        setWalletChainId(conn.chainId);
+        const roleStatus = await checkUserRolesOnChain(conn.address);
+        setUserRoles(roleStatus);
+      } catch (err) {
+        toast.error("Wallet connection failed", {
+          description: walletErrorMessage(err),
+        });
+        return;
+      }
+    }
+
+    setTxStage("confirming");
+    setTxHash(null);
+    setTxError(null);
+
+    const supply = BigInt(finances.maximumTokenSupply);
+    // Contract expects unit price reference in paise (smallest currency unit, 1 INR = 100 paise)
+    const unitPriceInPaise = BigInt(Math.round(unitPrice * 100));
+    const metadataURI = `ipfs://mst/${propertyId.trim()}`;
+
+    try {
+      const result = await registerPropertyTokenOnChain(
+        propertyId.trim(),
+        docHash,
+        supply,
+        unitPriceInPaise,
+        metadataURI,
+        (pendingHash) => {
+          setTxHash(pendingHash);
+          setTxStage("pending");
+        },
+      );
+
+      setTxHash(result.txHash);
+      setTxBlockNumber(result.blockNumber);
+      if (result.tokenId) {
+        setConfirmedTokenId(result.tokenId);
+      }
+      setTxStage("confirmed");
+
+      // Add to platform audit/activity log
+      addActivity({
+        kind: "Property Registered",
+        propertyId: propertyId.trim(),
+        detail: `Registered token on MST Testnet for ${propertyId.trim()} (Max Supply: ${finances.maximumTokenSupply} units, Unit Price: ${inr(unitPrice)})`,
+        source: "onchain",
+        txHash: result.txHash,
+        explorerUrl: explorerTxUrl(result.txHash),
+      });
+
+      // Save/update locally with on-chain reference
+      const propertyDocs: PropertyDoc[] = docs.map((d) => ({
+        id: d.id,
+        category: d.category,
+        type: d.type,
+        reference: d.reference,
+        date: d.date,
+        status: "Reviewed",
+        registeredHash: d.sha256,
+        fileName: d.fileName,
+        fileSize: d.fileSize,
+        fileType: d.fileType,
+        sha256: d.sha256,
+        fingerprintStatus: "Hash calculated",
+      }));
+
+      const propertyRecord: Property = {
+        id: propertyId.trim(),
+        name: name.trim(),
+        location: location.trim(),
+        kind:
+          propertyType === "residential"
+            ? "Residential apartment"
+            : propertyType === "commercial"
+              ? "Commercial office"
+              : "Land parcel",
+        propertyType,
+        image: propertyType === "commercial" ? prop2 : propertyType === "land" ? prop3 : prop1,
+        indicativeValue,
+        poolSize: tokenPool,
+        unitPrice,
+        monthlyRent,
+        vacancyPct,
+        monthlyOperating,
+        monthlyMaintenance,
+        capRatePct,
+        maxSupply: finances.maximumTokenSupply,
+        description: description.trim() || undefined,
+        docs: propertyDocs,
+        isUserCreated: true,
+      };
+      saveUserProperty(propertyRecord);
+
+      toast.success("Property registered on MST Testnet!", {
+        description: `Tx: ${result.txHash.slice(0, 10)}… (Block #${result.blockNumber})`,
+      });
+
+      // Read back confirmed property from deployed contract
+      try {
+        const fresh = await getPropertyTokenOnChain(propertyId.trim());
+        setOnChainTokenInfo(fresh);
+        if (fresh.tokenId > 0n) {
+          setConfirmedTokenId(fresh.tokenId);
+        }
+      } catch (readErr) {
+        console.warn("Could not read back property record immediately:", readErr);
+      }
+    } catch (err) {
+      const decoded = parseContractError(err);
+      setTxError(decoded);
+      setTxStage("error");
+      toast.error("On-chain registration failed", {
+        description: decoded,
+      });
+    }
+  }
+
   return (
     <>
       <PageHeader
@@ -461,17 +705,44 @@ function AddPropertyPage() {
                 </p>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button variant="outline" onClick={() => setPreviewMode(false)}>
                 Back to Edit
               </Button>
-              <Button onClick={handleSaveProperty} disabled={isSubmitting}>
+              <Button
+                variant="outline"
+                onClick={handleSaveProperty}
+                disabled={isSubmitting}
+                className="gap-1.5"
+              >
                 {isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Check className="h-4 w-4" />
                 )}
                 Save Demo Property
+              </Button>
+              <Button
+                onClick={handleRegisterOnChain}
+                disabled={
+                  txStage === "confirming" ||
+                  txStage === "pending" ||
+                  isMainnet ||
+                  docs.length === 0 ||
+                  Boolean(onChainTokenInfo?.exists)
+                }
+                className="gap-1.5 font-semibold"
+              >
+                {txStage === "confirming" || txStage === "pending" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : onChainTokenInfo?.exists ? (
+                  <Check className="h-4 w-4 text-success" />
+                ) : (
+                  <ShieldCheck className="h-4 w-4" />
+                )}
+                {onChainTokenInfo?.exists
+                  ? `Registered (Token #${onChainTokenInfo.tokenId.toString()})`
+                  : "Register Property on MST Testnet"}
               </Button>
             </div>
           </div>
@@ -481,7 +752,9 @@ function AddPropertyPage() {
             <section className="panel space-y-4 p-5">
               <div className="flex items-center justify-between border-b pb-3">
                 <h3 className="font-semibold">Property Summary</h3>
-                <Pill tone="warning">Local Demo Record</Pill>
+                <Pill tone={onChainTokenInfo?.exists ? "success" : "warning"}>
+                  {onChainTokenInfo?.exists ? "Registered On-Chain" : "Local Demo Record"}
+                </Pill>
               </div>
 
               <dl className="grid grid-cols-2 gap-4 text-sm">
@@ -517,7 +790,7 @@ function AddPropertyPage() {
                 <Pill tone="neutral">Illustrative Proposal</Pill>
               </div>
 
-              <div className="grid grid-cols-3 gap-3 rounded-lg bg-muted/40 p-3 text-center">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-lg bg-muted/40 p-3 text-center">
                 <div>
                   <p className="text-xs text-muted-foreground">Proposed Pool</p>
                   <p className="text-base font-semibold text-primary">{inr(tokenPool)}</p>
@@ -527,26 +800,35 @@ function AddPropertyPage() {
                   <p className="text-base font-semibold">{inr(unitPrice)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Max Supply</p>
-                  <p className="text-base font-semibold text-gold">
+                  <p className="text-xs text-muted-foreground">Whole-Unit Supply</p>
+                  <p className="text-base font-bold text-primary">
                     {finances.maximumTokenSupply.toLocaleString("en-IN")} units
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Allocated Value</p>
+                  <p className="text-base font-semibold text-foreground">
+                    {inr(finances.allocatedPool)}
                   </p>
                 </div>
               </div>
 
               <div className="space-y-2 text-xs text-muted-foreground">
                 <p>
-                  • <strong>Formula:</strong> Max token supply = floor(Tokenisation Pool / Price per
-                  unit)
+                  • <strong>Formula:</strong> Whole-unit supply = floor(Tokenisation Pool / Price
+                  per unit)
                 </p>
                 <p>
-                  • <strong>Divisibility:</strong>{" "}
-                  {finances.isPoolDivisible ? (
+                  • <strong>Allocation &amp; Remainder:</strong>{" "}
+                  {finances.unusedPoolRemainder === 0 ? (
                     <span className="text-success font-medium">
-                      Pool divides evenly into whole units.
+                      Pool divides evenly into whole units (no remainder).
                     </span>
                   ) : (
-                    <span className="text-destructive font-medium">Non-integer pool division.</span>
+                    <span className="text-amber-600 dark:text-amber-400 font-medium">
+                      {inr(finances.unusedPoolRemainder)} unallocated remainder (only whole units
+                      are tokenised; partial units are not minted).
+                    </span>
                   )}
                 </p>
                 <p className="rounded bg-accent/40 p-2 text-[11px] text-accent-foreground">
@@ -614,9 +896,9 @@ function AddPropertyPage() {
               <div className="rounded-lg border p-4">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium text-muted-foreground">
-                    Net Rental Yield
+                    Calculated Net Rental Yield (NOI Yield)
                   </span>
-                  <Pill tone="success">Yield</Pill>
+                  <Pill tone="success">NOI Yield</Pill>
                 </div>
                 <p className="mt-2 text-2xl font-bold">{finances.netRentalYield.toFixed(2)}%</p>
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -630,7 +912,7 @@ function AddPropertyPage() {
                   <span className="text-xs font-medium text-muted-foreground">
                     Income-Based Valuation
                   </span>
-                  <Pill tone="neutral">Cap rate {capRatePct}%</Pill>
+                  <Pill tone="neutral">Entered Cap Rate: {capRatePct}%</Pill>
                 </div>
                 <p className="mt-2 text-2xl font-bold">
                   {finances.incomeBasedValuation
@@ -701,19 +983,412 @@ function AddPropertyPage() {
             </div>
           </section>
 
+          {/* Section: MST Testnet On-Chain Registration */}
+          <section className="panel space-y-5 p-5 border-2 border-primary/40 bg-card">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+              <div className="flex items-center gap-2.5">
+                <ShieldCheck className="h-5 w-5 text-primary shrink-0" />
+                <div>
+                  <h3 className="font-semibold text-foreground">
+                    MST Testnet On-Chain Registration (PropertyToken)
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Direct interaction with the deployed PropertyToken smart contract via BridgeKey
+                    wallet.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {onChainTokenInfo?.exists ? (
+                  <Pill tone="success">
+                    Registered On-Chain · Token #{onChainTokenInfo.tokenId.toString()}
+                  </Pill>
+                ) : isMainnet ? (
+                  <Pill tone="destructive">Mainnet Active (Disabled)</Pill>
+                ) : (
+                  <Pill tone="neutral">Ready to Register</Pill>
+                )}
+              </div>
+            </div>
+
+            {/* Network & Contract Metadata */}
+            <div className="grid gap-3 rounded-lg border bg-muted/30 p-4 text-xs sm:grid-cols-2">
+              <div>
+                <span className="text-muted-foreground">Target Blockchain:</span>
+                <p className="font-medium text-foreground">
+                  MST Testnet (Chain ID {chainConfig.chainId ?? "91562037"})
+                </p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Deployed PropertyToken Address:</span>
+                <p className="font-mono font-medium truncate text-foreground">
+                  {chainConfig.tokenContractAddress ? (
+                    <a
+                      href={`${chainConfig.explorerUrl?.replace(/\/$/, "")}/address/${chainConfig.tokenContractAddress}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline text-primary inline-flex items-center gap-1"
+                    >
+                      {chainConfig.tokenContractAddress} <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ) : (
+                    "0x681Ef61D12372e040EE5f6e058932818aA29407F"
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* Mainnet Warning if active */}
+            {isMainnet && (
+              <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>
+                  <strong>Mainnet is selected:</strong> Live on-chain registration is only supported
+                  on MST Testnet (Chain ID 91562037). Please switch your network to MST Testnet in
+                  the top network switcher.
+                </span>
+              </div>
+            )}
+
+            {/* Document Hash Warning if missing */}
+            {docs.length === 0 && (
+              <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span>
+                    <strong>Document Fingerprint Required:</strong> The contract requires a valid
+                    SHA-256 document fingerprint to register.
+                  </span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleAttachDemoDocument}
+                  className="h-7 text-xs"
+                >
+                  Attach Pune Demo Document
+                </Button>
+              </div>
+            )}
+
+            {/* On-Chain Function Arguments Preview */}
+            <div className="space-y-2">
+              <span className="text-xs font-semibold text-foreground">
+                Transaction Arguments (registerProperty ABI):
+              </span>
+              <div className="rounded-lg border bg-card p-3 font-mono text-[11px] space-y-1.5 divide-y divide-border/40">
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-1.5">
+                  <span className="text-muted-foreground">bytes32 propertyRef:</span>
+                  <span
+                    className="text-foreground truncate max-w-xs sm:max-w-md font-medium"
+                    title={computedPropertyRef}
+                  >
+                    {computedPropertyRef ||
+                      "0x0000000000000000000000000000000000000000000000000000000000000000"}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+                  <span className="text-muted-foreground">bytes32 documentHash:</span>
+                  <span className="text-foreground truncate max-w-xs sm:max-w-md font-medium">
+                    {docs[0]?.sha256
+                      ? `0x${docs[0].sha256}`
+                      : "0x0000000000000000000000000000000000000000000000000000000000000000"}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+                  <span className="text-muted-foreground">uint256 maxSupply:</span>
+                  <span className="text-primary font-bold">
+                    {finances.maximumTokenSupply.toLocaleString()} units
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+                  <span className="text-muted-foreground">uint256 unitPriceReference:</span>
+                  <span className="text-foreground font-medium">
+                    {(unitPrice * 100).toLocaleString()} paise ({inr(unitPrice)}/unit)
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5">
+                  <span className="text-muted-foreground">string metadataURI:</span>
+                  <span className="text-muted-foreground font-mono">
+                    {`ipfs://mst/${propertyId.trim() || "PRP"}`}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* BridgeKey Wallet Connection & Role Status */}
+            <div className="space-y-2">
+              <span className="text-xs font-semibold text-foreground">
+                Connected BridgeKey Signer:
+              </span>
+              {!walletAddress ? (
+                <div className="rounded-lg border border-dashed p-4 flex flex-col sm:flex-row items-center justify-between gap-3 bg-muted/20">
+                  <div>
+                    <p className="font-medium text-sm">BridgeKey Wallet Not Connected</p>
+                    <p className="text-xs text-muted-foreground">
+                      Connect your BridgeKey wallet on MST Testnet to sign the registration
+                      transaction.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={handleConnectWallet}
+                    disabled={connectingWallet}
+                    className="gap-2 shrink-0"
+                  >
+                    <Wallet className="h-4 w-4" />
+                    {connectingWallet ? "Connecting…" : "Connect BridgeKey"}
+                  </Button>
+                </div>
+              ) : (
+                <div className="rounded-lg border bg-muted/20 p-3 text-xs space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Wallet className="h-4 w-4 text-primary shrink-0" />
+                      <span className="font-mono font-medium">{walletAddress}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Pill
+                        tone={
+                          walletChainId === "91562037" || walletChainId === "0x5752035"
+                            ? "success"
+                            : "destructive"
+                        }
+                      >
+                        {walletChainId === "91562037" || walletChainId === "0x5752035"
+                          ? "MST Testnet (91562037)"
+                          : `Wrong Chain: ${walletChainId}`}
+                      </Pill>
+                    </div>
+                  </div>
+
+                  {/* Role status */}
+                  <div className="flex flex-wrap items-center gap-3 pt-1 border-t text-[11px]">
+                    <span className="text-muted-foreground">Contract Permissions:</span>
+                    <span
+                      className={
+                        userRoles?.isIssuer
+                          ? "text-success font-medium"
+                          : "text-amber-600 dark:text-amber-400 font-medium"
+                      }
+                    >
+                      ISSUER_ROLE: {userRoles?.isIssuer ? "✓ Granted" : "✗ Not Granted"}
+                    </span>
+                    <span className="text-muted-foreground">|</span>
+                    <span
+                      className={
+                        userRoles?.isAdmin ? "text-success font-medium" : "text-muted-foreground"
+                      }
+                    >
+                      ADMIN: {userRoles?.isAdmin ? "✓ Granted" : "–"}
+                    </span>
+                  </div>
+
+                  {!userRoles?.isIssuer && !userRoles?.isAdmin && (
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-500/10 rounded p-2">
+                      <strong>Notice:</strong> Your connected wallet does not hold ISSUER_ROLE on
+                      the deployed PropertyToken contract. If you broadcast without this role, the
+                      transaction will revert on-chain.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Real-Time Transaction Feedback */}
+            {txStage === "confirming" && (
+              <div className="rounded-lg border border-primary/40 bg-primary/10 p-4 flex items-center gap-3">
+                <Loader2 className="h-5 w-5 animate-spin text-primary shrink-0" />
+                <div>
+                  <p className="font-semibold text-sm">Awaiting Wallet Confirmation</p>
+                  <p className="text-xs text-muted-foreground">
+                    Please approve the transaction in your BridgeKey wallet extension.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {txStage === "pending" && (
+              <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 space-y-2">
+                <div className="flex items-center gap-3">
+                  <Loader2 className="h-5 w-5 animate-spin text-amber-500 shrink-0" />
+                  <div>
+                    <p className="font-semibold text-sm">Broadcasting to MST Testnet</p>
+                    <p className="text-xs text-muted-foreground">
+                      Transaction submitted. Waiting for block confirmation...
+                    </p>
+                  </div>
+                </div>
+                {txHash && (
+                  <p className="font-mono text-xs">
+                    Tx Hash:{" "}
+                    <a
+                      href={explorerTxUrl(txHash)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline text-primary inline-flex items-center gap-1"
+                    >
+                      {txHash} <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </p>
+                )}
+              </div>
+            )}
+
+            {(txStage === "confirmed" || onChainTokenInfo?.exists) && (
+              <div className="rounded-lg border border-success/40 bg-success/10 p-4 space-y-3">
+                <div className="flex items-center gap-2.5">
+                  <CheckCircle2 className="h-5 w-5 text-success shrink-0" />
+                  <div>
+                    <p className="font-semibold text-sm text-success">
+                      Confirmed On-Chain on MST Testnet!
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Verified live on the deployed PropertyToken contract.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Confirmed On-Chain Data Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-card/70 rounded-lg p-3 text-xs border">
+                  <div>
+                    <span className="text-muted-foreground">Token ID:</span>
+                    <p className="font-mono font-bold text-base text-primary">
+                      #{onChainTokenInfo?.tokenId?.toString() ?? confirmedTokenId?.toString()}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Max Supply:</span>
+                    <p className="font-bold text-foreground">
+                      {onChainTokenInfo?.maxSupply
+                        ? `${onChainTokenInfo.maxSupply.toString()} units`
+                        : `${finances.maximumTokenSupply} units`}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Unit Price:</span>
+                    <p className="font-bold text-foreground">
+                      {onChainTokenInfo?.unitPriceReference
+                        ? `${(Number(onChainTokenInfo.unitPriceReference) / 100).toLocaleString("en-IN", { style: "currency", currency: "INR" })}`
+                        : inr(unitPrice)}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Transfers:</span>
+                    <p className="font-bold text-foreground">
+                      {onChainTokenInfo?.transfersEnabled ? "Enabled" : "Disabled"}
+                    </p>
+                  </div>
+                </div>
+
+                {txHash && (
+                  <p className="font-mono text-xs text-muted-foreground">
+                    Confirmed Tx:{" "}
+                    <a
+                      href={explorerTxUrl(txHash)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline text-primary inline-flex items-center gap-1"
+                    >
+                      {txHash} <ExternalLink className="h-3 w-3" />
+                    </a>{" "}
+                    {txBlockNumber ? `(Block #${txBlockNumber})` : ""}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {txStage === "error" && (
+              <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-sm text-destructive">Transaction Failed</p>
+                  <p className="text-xs text-muted-foreground mt-1">{txError}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Panel Actions */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => checkOnChainStatus(propertyId.trim())}
+                disabled={checkingOnChain}
+                className="gap-1.5 text-xs"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${checkingOnChain ? "animate-spin" : ""}`} />
+                Check On-Chain Status
+              </Button>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={handleRegisterOnChain}
+                  disabled={
+                    txStage === "confirming" ||
+                    txStage === "pending" ||
+                    isMainnet ||
+                    docs.length === 0 ||
+                    Boolean(onChainTokenInfo?.exists)
+                  }
+                  className="gap-2 font-semibold"
+                >
+                  {txStage === "confirming" || txStage === "pending" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : onChainTokenInfo?.exists ? (
+                    <Check className="h-4 w-4 text-success" />
+                  ) : (
+                    <ShieldCheck className="h-4 w-4" />
+                  )}
+                  {onChainTokenInfo?.exists
+                    ? `Registered (Token #${onChainTokenInfo.tokenId.toString()})`
+                    : "Register Property on MST Testnet"}
+                </Button>
+              </div>
+            </div>
+          </section>
+
           {/* Review Actions */}
-          <div className="flex items-center justify-between rounded-xl border bg-card p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4">
             <Button variant="outline" onClick={() => setPreviewMode(false)}>
               <ArrowLeft className="h-4 w-4" /> Back to Edit
             </Button>
-            <Button onClick={handleSaveProperty} disabled={isSubmitting}>
-              {isSubmitting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Check className="h-4 w-4" />
-              )}
-              Save Demo Property
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                onClick={handleSaveProperty}
+                variant="outline"
+                disabled={isSubmitting}
+                className="gap-1.5"
+              >
+                {isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
+                Save Demo Property (Local Browser)
+              </Button>
+              <Button
+                onClick={handleRegisterOnChain}
+                disabled={
+                  txStage === "confirming" ||
+                  txStage === "pending" ||
+                  isMainnet ||
+                  docs.length === 0 ||
+                  Boolean(onChainTokenInfo?.exists)
+                }
+                className="gap-1.5 font-semibold"
+              >
+                {txStage === "confirming" || txStage === "pending" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : onChainTokenInfo?.exists ? (
+                  <Check className="h-4 w-4 text-success" />
+                ) : (
+                  <ShieldCheck className="h-4 w-4" />
+                )}
+                {onChainTokenInfo?.exists
+                  ? `Registered (Token #${onChainTokenInfo.tokenId.toString()})`
+                  : "Register Property on MST Testnet"}
+              </Button>
+            </div>
           </div>
 
           <Disclaimer>{FINANCIAL_DISCLAIMER}</Disclaimer>
@@ -723,9 +1398,25 @@ function AddPropertyPage() {
         <form onSubmit={handleProceedToPreview} className="space-y-6">
           {/* Section 1: Property Identification & Details */}
           <section className="panel space-y-4 p-5">
-            <div className="flex items-center justify-between border-b pb-3">
-              <h2 className="font-semibold text-lg">1. Property Identification</h2>
-              <span className="text-xs text-muted-foreground">Required fields marked *</span>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-primary" />
+                <h2 className="font-semibold text-lg">1. Property Identification</h2>
+              </div>
+              <div className="flex items-center gap-2">
+                {!isEditing && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleLoadPuneDemoPreset}
+                    className="h-7 text-xs gap-1.5"
+                  >
+                    <Building2 className="h-3.5 w-3.5 text-primary" /> Load MST-DEMO-PUNE-002 Preset
+                  </Button>
+                )}
+                <span className="text-xs text-muted-foreground">Required fields marked *</span>
+              </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -744,15 +1435,27 @@ function AddPropertyPage() {
                     className="w-full rounded-md border bg-card px-3 py-2 font-mono text-sm uppercase"
                   />
                   {!isEditing && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPropertyId(generatePropertyId())}
-                      title="Generate new ID"
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                    </Button>
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPropertyId(generatePropertyId())}
+                        title="Generate new ID"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleLoadPuneDemoPreset}
+                        title="Load MST-DEMO-PUNE-002 Preset"
+                        className="text-xs shrink-0"
+                      >
+                        Pune Demo
+                      </Button>
+                    </>
                   )}
                 </div>
                 {errors.propertyId && (
@@ -844,11 +1547,14 @@ function AddPropertyPage() {
                 <input
                   id="market-val"
                   type="number"
-                  min={1}
-                  step={50000}
-                  value={indicativeValue}
-                  onChange={(e) => setIndicativeValue(Math.max(0, Number(e.target.value) || 0))}
+                  min="0.01"
+                  step="any"
+                  value={indicativeValue || ""}
+                  onChange={(e) =>
+                    setIndicativeValue(e.target.value === "" ? 0 : Number(e.target.value))
+                  }
                   className="mt-1 w-full rounded-md border bg-card px-3 py-2 text-sm"
+                  placeholder="e.g. 8000001"
                 />
                 {errors.indicativeValue && (
                   <p className="mt-1 text-xs text-destructive">{errors.indicativeValue}</p>
@@ -862,11 +1568,14 @@ function AddPropertyPage() {
                 <input
                   id="monthly-rent"
                   type="number"
-                  min={0}
-                  step={1000}
-                  value={monthlyRent}
-                  onChange={(e) => setMonthlyRent(Math.max(0, Number(e.target.value) || 0))}
+                  min="0"
+                  step="any"
+                  value={monthlyRent || ""}
+                  onChange={(e) =>
+                    setMonthlyRent(e.target.value === "" ? 0 : Number(e.target.value))
+                  }
                   className="mt-1 w-full rounded-md border bg-card px-3 py-2 text-sm"
+                  placeholder="e.g. 50000"
                 />
                 {errors.monthlyRent && (
                   <p className="mt-1 text-xs text-destructive">{errors.monthlyRent}</p>
@@ -880,14 +1589,15 @@ function AddPropertyPage() {
                 <input
                   id="vacancy-pct"
                   type="number"
-                  min={0}
-                  max={100}
-                  step={0.5}
-                  value={vacancyPct}
+                  min="0"
+                  max="100"
+                  step="any"
+                  value={vacancyPct ?? ""}
                   onChange={(e) =>
-                    setVacancyPct(Math.max(0, Math.min(100, Number(e.target.value) || 0)))
+                    setVacancyPct(e.target.value === "" ? 0 : Number(e.target.value))
                   }
                   className="mt-1 w-full rounded-md border bg-card px-3 py-2 text-sm"
+                  placeholder="e.g. 5"
                 />
                 {errors.vacancyPct && (
                   <p className="mt-1 text-xs text-destructive">{errors.vacancyPct}</p>
@@ -901,11 +1611,14 @@ function AddPropertyPage() {
                 <input
                   id="monthly-operating"
                   type="number"
-                  min={0}
-                  step={500}
-                  value={monthlyOperating}
-                  onChange={(e) => setMonthlyOperating(Math.max(0, Number(e.target.value) || 0))}
+                  min="0"
+                  step="any"
+                  value={monthlyOperating || ""}
+                  onChange={(e) =>
+                    setMonthlyOperating(e.target.value === "" ? 0 : Number(e.target.value))
+                  }
                   className="mt-1 w-full rounded-md border bg-card px-3 py-2 text-sm"
+                  placeholder="e.g. 4000"
                 />
                 {errors.monthlyOperating && (
                   <p className="mt-1 text-xs text-destructive">{errors.monthlyOperating}</p>
@@ -919,11 +1632,14 @@ function AddPropertyPage() {
                 <input
                   id="monthly-maintenance"
                   type="number"
-                  min={0}
-                  step={500}
-                  value={monthlyMaintenance}
-                  onChange={(e) => setMonthlyMaintenance(Math.max(0, Number(e.target.value) || 0))}
+                  min="0"
+                  step="any"
+                  value={monthlyMaintenance || ""}
+                  onChange={(e) =>
+                    setMonthlyMaintenance(e.target.value === "" ? 0 : Number(e.target.value))
+                  }
                   className="mt-1 w-full rounded-md border bg-card px-3 py-2 text-sm"
+                  placeholder="e.g. 3500"
                 />
                 {errors.monthlyMaintenance && (
                   <p className="mt-1 text-xs text-destructive">{errors.monthlyMaintenance}</p>
@@ -937,16 +1653,21 @@ function AddPropertyPage() {
                 <input
                   id="cap-rate"
                   type="number"
-                  min={0.1}
-                  max={30}
-                  step={0.1}
-                  value={capRatePct}
-                  onChange={(e) => setCapRatePct(Math.max(0, Number(e.target.value) || 0))}
+                  min="0.01"
+                  step="any"
+                  value={capRatePct || ""}
+                  onChange={(e) =>
+                    setCapRatePct(e.target.value === "" ? 0 : Number(e.target.value))
+                  }
                   className="mt-1 w-full rounded-md border bg-card px-3 py-2 text-sm"
+                  placeholder="e.g. 6.25"
                 />
                 {errors.capRatePct && (
                   <p className="mt-1 text-xs text-destructive">{errors.capRatePct}</p>
                 )}
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  User valuation rate. Used for Income-Based Valuation = NOI / (Cap Rate / 100).
+                </p>
               </div>
             </div>
 
@@ -967,8 +1688,24 @@ function AddPropertyPage() {
                   <p className="font-semibold text-primary">{inr(finances.netOperatingIncome)}</p>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Net Rental Yield:</span>
-                  <p className="font-semibold">{finances.netRentalYield.toFixed(2)}%</p>
+                  <span className="text-muted-foreground">Calculated NOI Yield:</span>
+                  <p className="font-semibold text-primary">
+                    {finances.netRentalYield.toFixed(2)}%
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t grid grid-cols-1 sm:grid-cols-2 gap-3 text-muted-foreground">
+                <div>
+                  <span>Entered Capitalisation Rate: </span>
+                  <strong className="text-foreground">{capRatePct}%</strong>
+                </div>
+                <div>
+                  <span>Income-Based Valuation: </span>
+                  <strong className="text-foreground">
+                    {finances.incomeBasedValuation
+                      ? inr(finances.incomeBasedValuation)
+                      : "Not applicable (NOI ≤ 0)"}
+                  </strong>
                 </div>
               </div>
             </div>
@@ -989,15 +1726,19 @@ function AddPropertyPage() {
                 <input
                   id="token-pool"
                   type="number"
-                  min={1}
-                  step={10000}
-                  value={tokenPool}
-                  onChange={(e) => setTokenPool(Math.max(0, Number(e.target.value) || 0))}
+                  min="0.01"
+                  step="any"
+                  value={tokenPool || ""}
+                  onChange={(e) => setTokenPool(e.target.value === "" ? 0 : Number(e.target.value))}
                   className="mt-1 w-full rounded-md border bg-card px-3 py-2 text-sm"
+                  placeholder="e.g. 2019017"
                 />
                 {errors.tokenPool && (
                   <p className="mt-1 text-xs text-destructive">{errors.tokenPool}</p>
                 )}
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Up to indicative market value ({inr(indicativeValue)}).
+                </p>
               </div>
 
               <div>
@@ -1007,15 +1748,19 @@ function AddPropertyPage() {
                 <input
                   id="unit-price"
                   type="number"
-                  min={1}
-                  step={100}
-                  value={unitPrice}
-                  onChange={(e) => setUnitPrice(Math.max(1, Number(e.target.value) || 1))}
+                  min="0.01"
+                  step="any"
+                  value={unitPrice || ""}
+                  onChange={(e) => setUnitPrice(e.target.value === "" ? 0 : Number(e.target.value))}
                   className="mt-1 w-full rounded-md border bg-card px-3 py-2 text-sm"
+                  placeholder="e.g. 1001"
                 />
                 {errors.unitPrice && (
                   <p className="mt-1 text-xs text-destructive">{errors.unitPrice}</p>
                 )}
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Informational reference price stored on-chain (paise precision).
+                </p>
               </div>
 
               <div>
@@ -1029,9 +1774,19 @@ function AddPropertyPage() {
                   value={`${finances.maximumTokenSupply.toLocaleString("en-IN")} units`}
                   className="mt-1 w-full rounded-md border bg-muted px-3 py-2 text-sm font-semibold"
                 />
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  = floor(Pool {inr(tokenPool)} / Unit Price {inr(unitPrice)})
-                </p>
+                <div className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
+                  <p>
+                    = floor(Pool {inr(tokenPool)} / Unit Price {inr(unitPrice)})
+                  </p>
+                  <p>
+                    Allocated: {inr(finances.allocatedPool)}
+                    {finances.unusedPoolRemainder > 0 && (
+                      <span className="text-amber-600 dark:text-amber-400 font-medium ml-1">
+                        · Remainder: {inr(finances.unusedPoolRemainder)} (not tokenised)
+                      </span>
+                    )}
+                  </p>
+                </div>
               </div>
             </div>
           </section>

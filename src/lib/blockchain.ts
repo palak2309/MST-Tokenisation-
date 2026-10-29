@@ -1,26 +1,35 @@
 import type { Eip1193Provider } from "ethers";
 import {
-  ACTIVE_NETWORK,
-  CHAIN_ID,
   CONTRACT_ABI,
-  CONTRACT_ADDRESS,
-  EXPLORER_URL,
+  getActiveNetworkConfig,
   isNetworkRegistryConfigured,
   isNetworkTokenConfigured,
-  NETWORK_NAME,
+  onActiveNetworkChange,
   PROPERTY_TOKEN_ABI,
-  RPC_URL,
-  TOKEN_CONTRACT_ADDRESS,
 } from "../contractConfig";
 
 export const chainConfig = {
-  network: ACTIVE_NETWORK,
-  chainId: CHAIN_ID,
-  rpcUrl: RPC_URL,
-  contractAddress: CONTRACT_ADDRESS,
-  tokenContractAddress: TOKEN_CONTRACT_ADDRESS,
-  explorerUrl: EXPLORER_URL,
-  networkName: NETWORK_NAME,
+  get network() {
+    return getActiveNetworkConfig().network;
+  },
+  get chainId() {
+    return getActiveNetworkConfig().chainId;
+  },
+  get rpcUrl() {
+    return getActiveNetworkConfig().rpcUrl;
+  },
+  get contractAddress() {
+    return getActiveNetworkConfig().contractAddress;
+  },
+  get tokenContractAddress() {
+    return getActiveNetworkConfig().tokenContractAddress;
+  },
+  get explorerUrl() {
+    return getActiveNetworkConfig().explorerUrl;
+  },
+  get networkName() {
+    return getActiveNetworkConfig().networkName;
+  },
 };
 
 export const BRIDGEKEY_RDNS = "io.bridgekey.wallet";
@@ -404,6 +413,9 @@ export const ROLES = {
   DEFAULT_ADMIN_ROLE: "0x0000000000000000000000000000000000000000000000000000000000000000",
 } as const;
 
+export const TESTNET_ADMIN_ACCOUNT = "0xEF9fE181ed6659096895bb54f71487B67E3b262b";
+export const TESTNET_CHAIN_ID_NUM = 91562037n;
+
 export type UserRoleStatus = {
   isAdmin: boolean;
   isIssuer: boolean;
@@ -436,6 +448,15 @@ export function parseContractError(error: unknown): string {
 
     if (errStr.includes("IneligibleInvestor")) {
       return "The recipient address is not an approved eligible investor. An account with COMPLIANCE_ROLE must whitelist this address first.";
+    }
+    if (errStr.includes("InvalidPropertyRef")) {
+      return "Registration rejected: property ID cannot be empty.";
+    }
+    if (errStr.includes("InvalidDocumentHash")) {
+      return "Registration rejected: document fingerprint cannot be zero.";
+    }
+    if (errStr.includes("InvalidMaxSupply")) {
+      return "Registration rejected: maximum token supply must be greater than zero.";
     }
     if (errStr.includes("SupplyCapExceeded")) {
       return "Issuance rejected: the requested amount exceeds the remaining maximum supply cap.";
@@ -898,6 +919,86 @@ export async function unpauseContractOnChain(
     txHash: tx.hash,
     blockNumber: receipt.blockNumber,
   };
+}
+
+export async function grantRoleOnChain(
+  role: string,
+  accountAddress: string,
+  onPending?: (txHash: string) => void,
+): Promise<{ txHash: string; blockNumber: number }> {
+  if (chainConfig.network !== "testnet" || getExpectedChainId() !== TESTNET_CHAIN_ID_NUM) {
+    throw new Error("grantRoleOnChain is only allowed on MST Testnet (Chain ID 91562037).");
+  }
+
+  if (!isTokenLiveConfigured()) {
+    throw new Error(getTokenRegistryConfigurationMessage());
+  }
+
+  const eth = await discoverBridgeKeyProvider();
+  const address = chainConfig.tokenContractAddress;
+  if (!address) {
+    throw new Error("PropertyToken contract address is not configured.");
+  }
+
+  const { BrowserProvider, Contract } = await import("ethers");
+  const provider = new BrowserProvider(eth);
+
+  const accounts: string[] = await provider.send("eth_requestAccounts", []);
+  const account = accounts[0];
+  if (!account) {
+    throw new Error("BridgeKey did not return an account for signing.");
+  }
+
+  const network = await provider.getNetwork();
+  assertCorrectNetwork(network.chainId);
+  if (network.chainId !== TESTNET_CHAIN_ID_NUM) {
+    throw new Error(
+      `Invalid network for role grant: Chain ID ${network.chainId}. Expected 91562037.`,
+    );
+  }
+
+  const signer = await provider.getSigner(account);
+  const contract = new Contract(address, PROPERTY_TOKEN_ABI, signer);
+
+  const tx = await contract.getFunction("grantRole")(role.trim(), accountAddress.trim());
+  if (onPending) onPending(tx.hash);
+  const receipt = await tx.wait();
+
+  if (!receipt || receipt.status !== 1) {
+    throw new Error("Role grant transaction failed on-chain.");
+  }
+
+  return {
+    txHash: tx.hash,
+    blockNumber: receipt.blockNumber,
+  };
+}
+
+export async function hasRoleOnChain(role: string, accountAddress: string): Promise<boolean> {
+  if (
+    chainConfig.network !== "testnet" ||
+    !isTokenLiveConfigured() ||
+    !accountAddress?.trim() ||
+    !role?.trim()
+  ) {
+    return false;
+  }
+  const address = chainConfig.tokenContractAddress;
+  if (!address || !chainConfig.rpcUrl) return false;
+
+  try {
+    const { JsonRpcProvider, Contract } = await import("ethers");
+    const provider = new JsonRpcProvider(
+      chainConfig.rpcUrl,
+      { chainId: Number(TESTNET_CHAIN_ID_NUM), name: "MST Testnet" },
+      { staticNetwork: true },
+    );
+    const contract = new Contract(address, PROPERTY_TOKEN_ABI, provider);
+    const has = await contract.getFunction("hasRole")(role.trim(), accountAddress.trim());
+    return Boolean(has);
+  } catch {
+    return false;
+  }
 }
 
 declare global {

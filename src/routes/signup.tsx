@@ -74,7 +74,7 @@ function SignupPage() {
     return (
       <div className="w-full max-w-md mx-auto space-y-6">
         <div className="text-center space-y-2">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gold/15 text-gold shadow-sm">
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F799B3] text-[#202938] font-bold shadow-sm">
             <Building2 className="h-6 w-6" />
           </div>
           <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
@@ -105,7 +105,7 @@ function SignupPage() {
     <div className="w-full max-w-lg mx-auto space-y-6">
       {/* Centered MST TokenEstate Branding */}
       <div className="text-center space-y-2">
-        <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gold/15 text-gold shadow-sm mb-1 ring-1 ring-gold/30">
+        <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F799B3] text-[#202938] font-bold shadow-sm mb-1 ring-2 ring-[#F799B3]/40">
           <Building2 className="h-7 w-7" />
         </div>
         <h1 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
@@ -217,7 +217,7 @@ function SignupPage() {
           <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-1.5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                <ShieldCheck className="h-4 w-4 text-primary" />
                 <span>Assigned Platform Role:</span>
               </span>
               <RoleBadge role="INVESTOR" />

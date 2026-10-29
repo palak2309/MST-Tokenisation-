@@ -123,7 +123,7 @@ function LoginPage() {
     return (
       <div className="w-full max-w-md mx-auto space-y-6">
         <div className="text-center space-y-2">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gold/15 text-gold shadow-sm">
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F799B3] text-[#202938] font-bold shadow-sm">
             <Building2 className="h-6 w-6" />
           </div>
           <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
@@ -164,7 +164,7 @@ function LoginPage() {
     <div className="w-full max-w-md mx-auto space-y-6">
       {/* Centered MST TokenEstate Branding */}
       <div className="text-center space-y-2">
-        <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gold/15 text-gold shadow-sm mb-1 ring-1 ring-gold/30">
+        <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F799B3] text-[#202938] font-bold shadow-sm mb-1 ring-2 ring-[#F799B3]/40">
           <Building2 className="h-7 w-7" />
         </div>
         <h1 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
@@ -254,7 +254,7 @@ function LoginPage() {
           <div className="pt-2 border-t space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="font-semibold text-foreground flex items-center gap-1.5 text-[11px]">
-                <Sparkles className="h-3 w-3 text-gold" />
+                <Sparkles className="h-3 w-3 text-primary" />
                 Buildathon Role Test Profiles:
               </span>
               <span className="text-[10px] text-muted-foreground">Click to fill</span>
@@ -265,10 +265,10 @@ function LoginPage() {
                   key={preset.role}
                   type="button"
                   onClick={() => handleSelectPreset(preset)}
-                  className="rounded-md border border-border bg-muted/40 hover:bg-gold/10 hover:border-gold/50 px-1.5 py-1 text-center transition-all group"
+                  className="rounded-md border border-border bg-muted/40 hover:bg-[#F799B3]/20 hover:border-[#F799B3]/50 px-1.5 py-1 text-center transition-all group"
                   title={`${preset.label}: ${preset.email} (${preset.description})`}
                 >
-                  <div className="text-[10px] font-semibold text-foreground group-hover:text-gold truncate">
+                  <div className="text-[10px] font-semibold text-foreground group-hover:text-primary truncate">
                     {preset.label}
                   </div>
                 </button>

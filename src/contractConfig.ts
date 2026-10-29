@@ -1,7 +1,8 @@
+import { useSyncExternalStore } from "react";
 import type { InterfaceAbi } from "ethers";
 
-type MstNetwork = "testnet" | "mainnet";
-type Environment = Record<string, string | undefined>;
+export type MstNetwork = "testnet" | "mainnet";
+export type Environment = Record<string, string | undefined>;
 
 export type MstNetworkConfig = {
   network: MstNetwork | "unsupported";
@@ -12,6 +13,16 @@ export type MstNetworkConfig = {
   tokenContractAddress: string | undefined;
   explorerUrl: string | undefined;
 };
+
+export const DEFAULT_TESTNET_CHAIN_ID = "91562037";
+export const DEFAULT_TESTNET_NETWORK_NAME = "MST Testnet";
+export const DEFAULT_TESTNET_RPC_URL = "https://testnetrpc.mstblockchain.com";
+export const DEFAULT_TESTNET_EXPLORER_URL = "https://testnet.mstscan.com/";
+
+export const DEFAULT_MAINNET_CHAIN_ID = "4646";
+export const DEFAULT_MAINNET_NETWORK_NAME = "MST Mainnet";
+export const DEFAULT_MAINNET_RPC_URL = "https://mariorpc.mstblockchain.com/";
+export const DEFAULT_MAINNET_EXPLORER_URL = "https://mstscan.com/";
 
 export function isNetworkRegistryConfigured(
   config: Pick<MstNetworkConfig, "network" | "chainId" | "contractAddress">,
@@ -74,39 +85,74 @@ export function getNetworkStatusInfo(
   };
 }
 
-const env = import.meta.env as ImportMetaEnv & Environment;
+const env = (
+  typeof import.meta !== "undefined" && import.meta.env
+    ? import.meta.env
+    : typeof process !== "undefined" && process.env
+      ? process.env
+      : {}
+) as ImportMetaEnv & Environment;
 
-export function resolveMstNetworkConfig(environment: Environment): MstNetworkConfig {
+export function resolveTestnetConfig(environment: Environment = env): MstNetworkConfig {
+  const contractAddress =
+    (
+      environment["VITE_MST_TESTNET_CONTRACT_ADDRESS"] ?? environment["VITE_MST_CONTRACT_ADDRESS"]
+    )?.trim() || undefined;
+
+  const tokenContractAddress =
+    (
+      environment["VITE_MST_TESTNET_TOKEN_CONTRACT_ADDRESS"] ??
+      environment["VITE_MST_TOKEN_CONTRACT_ADDRESS"]
+    )?.trim() || undefined;
+
+  return {
+    network: "testnet",
+    networkName:
+      environment["VITE_MST_TESTNET_NETWORK_NAME"]?.trim() ||
+      environment["VITE_MST_NETWORK_NAME"]?.trim() ||
+      DEFAULT_TESTNET_NETWORK_NAME,
+    chainId:
+      environment["VITE_MST_TESTNET_CHAIN_ID"]?.trim() ||
+      environment["VITE_MST_CHAIN_ID"]?.trim() ||
+      DEFAULT_TESTNET_CHAIN_ID,
+    rpcUrl:
+      environment["VITE_MST_TESTNET_RPC_URL"]?.trim() ||
+      environment["VITE_MST_RPC_URL"]?.trim() ||
+      DEFAULT_TESTNET_RPC_URL,
+    contractAddress,
+    tokenContractAddress,
+    explorerUrl:
+      environment["VITE_MST_TESTNET_EXPLORER_URL"]?.trim() ||
+      environment["VITE_MST_EXPLORER_URL"]?.trim() ||
+      DEFAULT_TESTNET_EXPLORER_URL,
+  };
+}
+
+export function resolveMainnetConfig(environment: Environment = env): MstNetworkConfig {
+  return {
+    network: "mainnet",
+    networkName:
+      environment["VITE_MST_MAINNET_NETWORK_NAME"]?.trim() || DEFAULT_MAINNET_NETWORK_NAME,
+    chainId: environment["VITE_MST_MAINNET_CHAIN_ID"]?.trim() || DEFAULT_MAINNET_CHAIN_ID,
+    rpcUrl: environment["VITE_MST_MAINNET_RPC_URL"]?.trim() || DEFAULT_MAINNET_RPC_URL,
+    // Strict address isolation: Mainnet NEVER falls back to Testnet addresses
+    contractAddress: environment["VITE_MST_MAINNET_CONTRACT_ADDRESS"]?.trim() || undefined,
+    tokenContractAddress:
+      environment["VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS"]?.trim() || undefined,
+    explorerUrl:
+      environment["VITE_MST_MAINNET_EXPLORER_URL"]?.trim() || DEFAULT_MAINNET_EXPLORER_URL,
+  };
+}
+
+export function resolveMstNetworkConfig(environment: Environment = env): MstNetworkConfig {
   const selected = environment["VITE_MST_NETWORK"]?.trim().toLowerCase() || "testnet";
 
   if (selected === "testnet") {
-    return {
-      network: "testnet",
-      networkName:
-        environment["VITE_MST_TESTNET_NETWORK_NAME"] ?? environment["VITE_MST_NETWORK_NAME"],
-      chainId: environment["VITE_MST_TESTNET_CHAIN_ID"] ?? environment["VITE_MST_CHAIN_ID"],
-      rpcUrl: environment["VITE_MST_TESTNET_RPC_URL"],
-      contractAddress:
-        environment["VITE_MST_TESTNET_CONTRACT_ADDRESS"] ??
-        environment["VITE_MST_CONTRACT_ADDRESS"],
-      tokenContractAddress:
-        environment["VITE_MST_TESTNET_TOKEN_CONTRACT_ADDRESS"] ??
-        environment["VITE_MST_TOKEN_CONTRACT_ADDRESS"],
-      explorerUrl:
-        environment["VITE_MST_TESTNET_EXPLORER_URL"] ?? environment["VITE_MST_EXPLORER_URL"],
-    };
+    return resolveTestnetConfig(environment);
   }
 
   if (selected === "mainnet") {
-    return {
-      network: "mainnet",
-      networkName: environment["VITE_MST_MAINNET_NETWORK_NAME"],
-      chainId: environment["VITE_MST_MAINNET_CHAIN_ID"],
-      rpcUrl: environment["VITE_MST_MAINNET_RPC_URL"],
-      contractAddress: environment["VITE_MST_MAINNET_CONTRACT_ADDRESS"],
-      tokenContractAddress: environment["VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS"],
-      explorerUrl: environment["VITE_MST_MAINNET_EXPLORER_URL"],
-    };
+    return resolveMainnetConfig(environment);
   }
 
   return {
@@ -120,7 +166,107 @@ export function resolveMstNetworkConfig(environment: Environment): MstNetworkCon
   };
 }
 
-export const NETWORK_CONFIG = resolveMstNetworkConfig(env);
+export const NETWORK_STORAGE_KEY = "tokenestate_selected_network";
+
+type NetworkChangeListener = (network: MstNetwork) => void;
+const networkListeners = new Set<NetworkChangeListener>();
+
+let currentActiveNetwork: MstNetwork = (() => {
+  if (typeof window !== "undefined" && window.localStorage) {
+    try {
+      const saved = window.localStorage.getItem(NETWORK_STORAGE_KEY)?.trim().toLowerCase();
+      if (saved === "testnet" || saved === "mainnet") {
+        return saved;
+      }
+    } catch {
+      // Ignore localStorage access errors
+    }
+  }
+  // Default to testnet (Requirement 1 & 2)
+  const envSelected = env["VITE_MST_NETWORK"]?.trim().toLowerCase();
+  if (envSelected === "mainnet") {
+    return "mainnet";
+  }
+  return "testnet";
+})();
+
+export function getActiveNetwork(): MstNetwork {
+  return currentActiveNetwork;
+}
+
+export function setActiveNetwork(network: MstNetwork): void {
+  if (network !== "testnet" && network !== "mainnet") return;
+  if (currentActiveNetwork === network) return;
+  currentActiveNetwork = network;
+  if (typeof window !== "undefined" && window.localStorage) {
+    try {
+      window.localStorage.setItem(NETWORK_STORAGE_KEY, network);
+    } catch {
+      // Ignore localStorage access errors
+    }
+  }
+  networkListeners.forEach((listener) => {
+    try {
+      listener(network);
+    } catch (e) {
+      console.error("Error in network change listener:", e);
+    }
+  });
+}
+
+export function onActiveNetworkChange(listener: NetworkChangeListener): () => void {
+  networkListeners.add(listener);
+  return () => {
+    networkListeners.delete(listener);
+  };
+}
+
+export function getActiveNetworkConfig(environment: Environment = env): MstNetworkConfig {
+  return currentActiveNetwork === "mainnet"
+    ? resolveMainnetConfig(environment)
+    : resolveTestnetConfig(environment);
+}
+
+export function useNetwork() {
+  const network = useSyncExternalStore(onActiveNetworkChange, getActiveNetwork, () => "testnet");
+  const config = getActiveNetworkConfig();
+  const statusInfo = getNetworkStatusInfo(config);
+
+  return {
+    network,
+    config,
+    statusInfo,
+    setNetwork: setActiveNetwork,
+    isMainnet: network === "mainnet",
+    isTestnet: network === "testnet",
+  };
+}
+
+// Dynamic configuration object that reflects the active network
+export const NETWORK_CONFIG: MstNetworkConfig = {
+  get network() {
+    return getActiveNetworkConfig().network;
+  },
+  get networkName() {
+    return getActiveNetworkConfig().networkName;
+  },
+  get chainId() {
+    return getActiveNetworkConfig().chainId;
+  },
+  get rpcUrl() {
+    return getActiveNetworkConfig().rpcUrl;
+  },
+  get contractAddress() {
+    return getActiveNetworkConfig().contractAddress;
+  },
+  get tokenContractAddress() {
+    return getActiveNetworkConfig().tokenContractAddress;
+  },
+  get explorerUrl() {
+    return getActiveNetworkConfig().explorerUrl;
+  },
+};
+
 export const ACTIVE_NETWORK = NETWORK_CONFIG.network;
 export const NETWORK_NAME = NETWORK_CONFIG.networkName;
 export const CHAIN_ID = NETWORK_CONFIG.chainId;

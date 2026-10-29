@@ -1,13 +1,24 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import {
   BRIDGEKEY_RDNS,
+  chainConfig,
   compareOnChainFingerprint,
   discoverBridgeKeyProvider,
+  getExpectedChainId,
+  getRegistryConfigurationMessage,
+  getTokenRegistryConfigurationMessage,
+  grantRoleOnChain,
+  hasRoleOnChain,
+  isLiveConfigured,
+  isTokenLiveConfigured,
   parseContractError,
   ROLES,
   subscribeToBridgeKeyEvents,
+  TESTNET_ADMIN_ACCOUNT,
+  TESTNET_CHAIN_ID_NUM,
   type BridgeKeyProviderEvents,
 } from "./blockchain";
+import { setActiveNetwork } from "../contractConfig";
 import type { Eip1193Provider } from "ethers";
 
 function providerAnnouncement(rdns: string, provider: Eip1193Provider) {
@@ -153,6 +164,21 @@ describe("blockchain helpers", () => {
       expect(parseContractError(error)).toContain("approved eligible investor");
     });
 
+    it("decodes InvalidPropertyRef error into human-readable advice", () => {
+      const error = { message: "execution reverted: custom error InvalidPropertyRef()" };
+      expect(parseContractError(error)).toContain("property ID cannot be empty");
+    });
+
+    it("decodes InvalidDocumentHash error into human-readable advice", () => {
+      const error = { message: "execution reverted: custom error InvalidDocumentHash()" };
+      expect(parseContractError(error)).toContain("document fingerprint cannot be zero");
+    });
+
+    it("decodes InvalidMaxSupply error into human-readable advice", () => {
+      const error = { message: "execution reverted: custom error InvalidMaxSupply()" };
+      expect(parseContractError(error)).toContain("maximum token supply must be greater than zero");
+    });
+
     it("decodes SupplyCapExceeded error into supply cap notice", () => {
       const error = { message: "execution reverted: custom error SupplyCapExceeded(1, 100, 50)" };
       expect(parseContractError(error)).toContain("exceeds the remaining maximum supply cap");
@@ -183,6 +209,77 @@ describe("blockchain helpers", () => {
       expect(ROLES.PAUSER_ROLE).toBe(
         "0x65d7a28e3265b37a6474929f336521b332c1681b933f6cb9f3376673440d862a",
       );
+    });
+  });
+
+  describe("dual network configuration and guards", () => {
+    beforeEach(() => {
+      setActiveNetwork("testnet");
+    });
+
+    it("defaults to MST Testnet (Chain ID 91562037)", () => {
+      expect(chainConfig.network).toBe("testnet");
+      expect(chainConfig.chainId).toBe("91562037");
+      expect(getExpectedChainId()).toBe(91562037n);
+    });
+
+    it("dynamically reflects network switch to Mainnet (Chain ID 4646)", () => {
+      setActiveNetwork("mainnet");
+      expect(chainConfig.network).toBe("mainnet");
+      expect(chainConfig.chainId).toBe("4646");
+      expect(getExpectedChainId()).toBe(4646n);
+
+      // And dynamically switches back to Testnet
+      setActiveNetwork("testnet");
+      expect(chainConfig.network).toBe("testnet");
+      expect(chainConfig.chainId).toBe("91562037");
+      expect(getExpectedChainId()).toBe(91562037n);
+    });
+
+    it("disables live actions and provides clear explanation when Mainnet addresses are missing", () => {
+      setActiveNetwork("mainnet");
+      // Mainnet does not inherit testnet contract addresses
+      expect(chainConfig.contractAddress).toBeUndefined();
+      expect(chainConfig.tokenContractAddress).toBeUndefined();
+      expect(isLiveConfigured()).toBe(false);
+      expect(isTokenLiveConfigured()).toBe(false);
+
+      const registryMsg = getRegistryConfigurationMessage();
+      expect(registryMsg).toContain("Mainnet contract not deployed/configured");
+      expect(registryMsg).toContain("VITE_MST_MAINNET_CONTRACT_ADDRESS");
+
+      const tokenMsg = getTokenRegistryConfigurationMessage();
+      expect(tokenMsg).toContain("Mainnet PropertyToken contract not deployed/configured");
+      expect(tokenMsg).toContain("VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS");
+    });
+  });
+
+  describe("grantRoleOnChain testnet safeguards", () => {
+    it("exports verified testnet admin address and chain ID", () => {
+      expect(TESTNET_ADMIN_ACCOUNT).toBe("0xEF9fE181ed6659096895bb54f71487B67E3b262b");
+      expect(TESTNET_CHAIN_ID_NUM).toBe(91562037n);
+      expect(ROLES.COMPLIANCE_ROLE).toBe(
+        "0x442a94f1a1fac79af32856af2a64f63648cfa2ef3b98610a5bb7cbec4cee6985",
+      );
+      expect(ROLES.DEFAULT_ADMIN_ROLE).toBe(
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+      );
+    });
+
+    it("rejects grantRoleOnChain when active network is Mainnet", async () => {
+      setActiveNetwork("mainnet");
+      await expect(grantRoleOnChain(ROLES.COMPLIANCE_ROLE, TESTNET_ADMIN_ACCOUNT)).rejects.toThrow(
+        "grantRoleOnChain is only allowed on MST Testnet (Chain ID 91562037).",
+      );
+      setActiveNetwork("testnet");
+    });
+
+    it("returns false from hasRoleOnChain when inputs or token addresses are missing", async () => {
+      expect(await hasRoleOnChain("", "")).toBe(false);
+      expect(await hasRoleOnChain(ROLES.COMPLIANCE_ROLE, "")).toBe(false);
+      setActiveNetwork("mainnet");
+      expect(await hasRoleOnChain(ROLES.COMPLIANCE_ROLE, TESTNET_ADMIN_ACCOUNT)).toBe(false);
+      setActiveNetwork("testnet");
     });
   });
 });

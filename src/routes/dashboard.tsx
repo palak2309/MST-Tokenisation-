@@ -86,8 +86,8 @@ function DashboardPageContent() {
           {/* Wallet Link Status */}
           <div className="flex items-center gap-2 text-xs">
             {user?.linkedWalletAddress ? (
-              <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-emerald-600 dark:text-emerald-400 font-mono">
-                <Wallet className="h-4 w-4" />
+              <div className="flex items-center gap-2 rounded-lg border border-[#F799B3]/40 bg-[#F799B3]/15 px-3 py-1.5 text-[#202938] font-mono font-medium">
+                <Wallet className="h-4 w-4 text-[#202938]" />
                 <span>
                   Linked: {user.linkedWalletAddress.slice(0, 6)}...
                   {user.linkedWalletAddress.slice(-4)}
@@ -258,10 +258,10 @@ function DashboardPageContent() {
       {/* ROLE 4: INVESTOR DASHBOARD */}
       {role === "INVESTOR" && (
         <div className="space-y-6">
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-6 space-y-4">
+          <div className="rounded-xl border border-[#C9B8E8]/50 bg-[#C9B8E8]/15 p-6 space-y-4">
             <div className="space-y-1">
               <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-emerald-500" />
+                <TrendingUp className="h-5 w-5 text-[#202938]" />
                 <span>Investor Portfolio & Opportunities</span>
               </h2>
               <p className="text-xs text-muted-foreground">

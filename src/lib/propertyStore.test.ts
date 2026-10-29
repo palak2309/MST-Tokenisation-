@@ -81,6 +81,33 @@ describe("propertyStore local persistence", () => {
       false,
     );
     expect(validatePropertyRecord({ ...validProperty, capRatePct: -2 }).valid).toBe(false);
+    // Reject pool exceeding market value
+    expect(
+      validatePropertyRecord({
+        ...validProperty,
+        indicativeValue: 8_000_000,
+        poolSize: 9_000_000,
+      }).valid,
+    ).toBe(false);
+  });
+
+  it("validates flexible amounts: market value ₹80,00,001, pool ₹20,19,017, unit price ₹1,001", () => {
+    const customProperty: Property = {
+      ...validProperty,
+      id: "PRP-DEMO-8001",
+      indicativeValue: 8_000_001,
+      poolSize: 2_019_017,
+      unitPrice: 1_001,
+      maxSupply: 2017,
+    };
+    const validation = validatePropertyRecord(customProperty);
+    expect(validation.valid).toBe(true);
+
+    const saveRes = saveUserProperty(customProperty);
+    expect(saveRes.success).toBe(true);
+    expect(saveRes.property?.indicativeValue).toBe(8_000_001);
+    expect(saveRes.property?.poolSize).toBe(2_019_017);
+    expect(saveRes.property?.unitPrice).toBe(1_001);
   });
 
   it("saves a valid user property and makes it retrievable", () => {

@@ -208,6 +208,17 @@ export function validatePropertyRecord(
   if (p.poolSize < p.unitPrice) {
     return { valid: false, error: "Tokenisation pool cannot be less than the price per token." };
   }
+  if (
+    p.indicativeValue !== undefined &&
+    p.indicativeValue > 0 &&
+    p.poolSize !== undefined &&
+    p.poolSize > p.indicativeValue
+  ) {
+    return {
+      valid: false,
+      error: "Proposed tokenisation pool cannot exceed the indicative market value.",
+    };
+  }
 
   return { valid: true };
 }

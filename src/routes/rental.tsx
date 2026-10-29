@@ -188,26 +188,30 @@ function RentalPage() {
           <div className="grid grid-cols-3 gap-3">
             <div className="panel p-4">
               <p className="text-xs text-muted-foreground">Net distributable</p>
-              <p className="text-xl font-semibold">{inr(r.net)}</p>
+              <p className="text-xl font-semibold text-foreground">{inr(r.net)}</p>
             </div>
-            <div className="panel p-4">
-              <p className="text-xs text-muted-foreground">Est. monthly</p>
-              <p className="text-xl font-semibold text-primary">{inr(r.monthly)}</p>
+            <div className="panel border-[#F799B3]/40 bg-[#F799B3]/15 p-4 shadow-sm">
+              <p className="text-xs font-medium text-foreground">Est. monthly (Key)</p>
+              <p className="text-xl font-bold text-foreground">{inr(r.monthly)}</p>
             </div>
             <div className="panel p-4">
               <p className="text-xs text-muted-foreground">Est. annual</p>
-              <p className="text-xl font-semibold text-accent-foreground">{inr(r.annual)}</p>
+              <p className="text-xl font-semibold text-foreground">{inr(r.annual)}</p>
             </div>
           </div>
           <section className="panel p-5">
-            <h3 className="mb-2 font-semibold">Monthly income waterfall</h3>
+            <h3 className="mb-2 font-semibold text-foreground">Monthly income waterfall</h3>
             <div className="h-64">
               <ResponsiveContainer>
                 <BarChart data={chart}>
-                  <XAxis dataKey="name" fontSize={11} />
-                  <YAxis fontSize={11} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
+                  <XAxis dataKey="name" fontSize={11} stroke="var(--navy)" />
+                  <YAxis
+                    fontSize={11}
+                    stroke="var(--navy)"
+                    tickFormatter={(v) => `${Math.round(v / 1000)}k`}
+                  />
                   <Tooltip formatter={(v: number) => inr(v)} />
-                  <Bar dataKey="v" fill="var(--primary)" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="v" fill="var(--lavender)" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

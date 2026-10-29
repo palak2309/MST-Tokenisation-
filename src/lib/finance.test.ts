@@ -208,7 +208,7 @@ describe("property financial algorithm", () => {
       expect(result.disclaimer).toContain("illustrative estimates");
     });
 
-    it("flags non-divisible pools correctly", () => {
+    it("flags non-divisible pools correctly and calculates unallocated remainder", () => {
       const result = calculatePropertyFinances({
         monthlyGrossRent: 40_000,
         vacancyPct: 0,
@@ -222,6 +222,76 @@ describe("property financial algorithm", () => {
 
       expect(result.isPoolDivisible).toBe(false);
       expect(result.maximumTokenSupply).toBe(5000);
+      expect(result.allocatedPool).toBe(5_000_000);
+      expect(result.unusedPoolRemainder).toBe(500);
+    });
+
+    it("correctly handles flexible values: market value ₹80,00,001, pool ₹20,19,017, unit price ₹1,001", () => {
+      const result = calculatePropertyFinances({
+        monthlyGrossRent: 50_000,
+        vacancyPct: 5,
+        monthlyOperatingExpenses: 4_000,
+        monthlyMaintenanceExpenses: 3_500,
+        indicativeMarketValue: 8_000_001,
+        capRatePct: 6.25,
+        tokenisationPool: 2_019_017,
+        tokenPricePerUnit: 1_001,
+      });
+
+      // Token calculations: 2_019_017 / 1_001 = 2017 whole units exactly
+      expect(result.maximumTokenSupply).toBe(2017);
+      expect(result.allocatedPool).toBe(2_019_017);
+      expect(result.unusedPoolRemainder).toBe(0);
+      expect(result.isPoolDivisible).toBe(true);
+
+      // Financials: NOI = (50000 * 12 * 0.95) - ((4000 + 3500) * 12) = 570000 - 90000 = 480000
+      expect(result.netOperatingIncome).toBe(480_000);
+
+      // Income-based valuation uses entered cap rate: 480_000 / (6.25 / 100) = 7_680_000
+      expect(result.incomeBasedValuation).toBe(7_680_000);
+
+      // Net rental yield is calculated separately from market value: (480_000 / 8_000_001) * 100
+      const expectedYield = (480_000 / 8_000_001) * 100;
+      expect(result.netRentalYield).toBeCloseTo(expectedYield, 5);
+      expect(result.netRentalYield).not.toBe(6.25); // Cap rate and yield are distinct
+    });
+
+    it("calculates floor whole units and isolates remainder when pool does not divide evenly (e.g. pool ₹20,19,020 / ₹1,001)", () => {
+      const result = calculatePropertyFinances({
+        monthlyGrossRent: 50_000,
+        vacancyPct: 5,
+        monthlyOperatingExpenses: 4_000,
+        monthlyMaintenanceExpenses: 3_500,
+        indicativeMarketValue: 8_000_001,
+        capRatePct: 6.25,
+        tokenisationPool: 2_019_020,
+        tokenPricePerUnit: 1_001,
+      });
+
+      // floor(2_019_020 / 1_001) = 2017 units
+      expect(result.maximumTokenSupply).toBe(2017);
+      expect(result.allocatedPool).toBe(2_019_017);
+      expect(result.unusedPoolRemainder).toBe(3); // ₹3 remainder
+      expect(result.isPoolDivisible).toBe(false);
+    });
+
+    it("supports decimal unit price (e.g. ₹1,001.50) with clean integer supply", () => {
+      const result = calculatePropertyFinances({
+        monthlyGrossRent: 50_000,
+        vacancyPct: 5,
+        monthlyOperatingExpenses: 4_000,
+        monthlyMaintenanceExpenses: 3_500,
+        indicativeMarketValue: 8_000_001,
+        capRatePct: 6,
+        tokenisationPool: 20_030,
+        tokenPricePerUnit: 1_001.5,
+      });
+
+      // floor(20030 / 1001.5) = 20 units
+      expect(result.maximumTokenSupply).toBe(20);
+      expect(result.allocatedPool).toBe(20_030);
+      expect(result.unusedPoolRemainder).toBe(0);
+      expect(result.isPoolDivisible).toBe(true);
     });
   });
 });
