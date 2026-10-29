@@ -74,7 +74,11 @@ export function WalletButton() {
   return (
     <Button variant={addr ? "outline" : "default"} size="sm" onClick={onConnect} disabled={busy}>
       <Wallet className="h-4 w-4" />
-      {addr ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : busy ? "Connecting BridgeKey…" : "Connect BridgeKey"}
+      {addr
+        ? `${addr.slice(0, 6)}…${addr.slice(-4)}`
+        : busy
+          ? "Connecting BridgeKey…"
+          : "Connect BridgeKey"}
     </Button>
   );
 }

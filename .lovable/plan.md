@@ -24,26 +24,26 @@ Nothing below has been applied. Lovable Cloud is not enabled. No database, stora
 
 ## Roles
 
-| Role | Can do |
-|---|---|
-| investor (given to everyone at sign-up) | view approved properties and approved document metadata; no uploads |
-| registrar | create properties, upload documents and new versions for properties assigned to them |
-| reviewer (auditor) | read all documents through short-lived links; record approve/reject decisions; cannot upload |
-| admin | assign and remove roles, assign registrars to properties; cannot edit review decisions |
+| Role                                    | Can do                                                                                       |
+| --------------------------------------- | -------------------------------------------------------------------------------------------- |
+| investor (given to everyone at sign-up) | view approved properties and approved document metadata; no uploads                          |
+| registrar                               | create properties, upload documents and new versions for properties assigned to them         |
+| reviewer (auditor)                      | read all documents through short-lived links; record approve/reject decisions; cannot upload |
+| admin                                   | assign and remove roles, assign registrars to properties; cannot edit review decisions       |
 
 - Roles live in their own table, never on the profile.
 - Only admins can write to it, enforced by database security rules. Every permission check runs in the database and on the server, not just by hiding buttons.
 
 ## Tables (minimum set)
 
-| Table | Purpose | Access rules |
-|---|---|---|
-| profiles | display name and avatar from Google, one row per user, created automatically at sign-up | user reads/edits own row; reviewers/admins read |
-| user_roles | user, role | read own roles; only admins write |
-| properties | property ID (e.g. PRP-PUN-0142), title, location, status, assigned registrar | signed-in users read approved; assigned registrar writes own; admin all |
-| documents | one row per document type per property (sale deed, mutation entry, etc.) | same as properties |
+| Table             | Purpose                                                                                       | Access rules                                                                                                              |
+| ----------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| profiles          | display name and avatar from Google, one row per user, created automatically at sign-up       | user reads/edits own row; reviewers/admins read                                                                           |
+| user_roles        | user, role                                                                                    | read own roles; only admins write                                                                                         |
+| properties        | property ID (e.g. PRP-PUN-0142), title, location, status, assigned registrar                  | signed-in users read approved; assigned registrar writes own; admin all                                                   |
+| documents         | one row per document type per property (sale deed, mutation entry, etc.)                      | same as properties                                                                                                        |
 | document_versions | file path, SHA-256 hash, size, file type, uploader, timestamp, optional on-chain tx reference | registrar inserts (never updates/deletes); reviewers/admins read; investors read hash + status only for approved versions |
-| review_decisions | version, reviewer, decision, notes, timestamp | reviewers insert own; never edited; registrars read decisions on their properties |
+| review_decisions  | version, reviewer, decision, notes, timestamp                                                 | reviewers insert own; never edited; registrars read decisions on their properties                                         |
 
 - Records are append-only, so history can't be rewritten.
 - Every row has `source = 'verified_upload'`. The existing demo data stays in code with `source = "demo"` and the "Simulated" label, and is never mixed into these tables.

@@ -4,11 +4,7 @@ import hardhatMocha from "@nomicfoundation/hardhat-mocha";
 import { configVariable, defineConfig } from "hardhat/config";
 
 export default defineConfig({
-  plugins: [
-    hardhatEthers,
-    hardhatEthersChaiMatchers,
-    hardhatMocha,
-  ],
+  plugins: [hardhatEthers, hardhatEthersChaiMatchers, hardhatMocha],
   solidity: "0.8.20",
   paths: {
     sources: "./contracts",
@@ -17,6 +13,15 @@ export default defineConfig({
     artifacts: "./artifacts",
   },
   networks: {
+    mstTestnet: {
+      type: "http",
+      chainType: "l1",
+      chainId: 91562037,
+      url: configVariable("MST_TESTNET_RPC_URL", {
+        default: "https://testnetrpc.mstblockchain.com",
+      }),
+      accounts: [configVariable("MST_TESTNET_PRIVATE_KEY")],
+    },
     mstMainnet: {
       type: "http",
       chainType: "l1",

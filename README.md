@@ -1,6 +1,6 @@
 # Property Verification & Fractional Investment Platform
 
-*Verify Before You Invest.* This student buildathon prototype demonstrates property-document fingerprinting and fractional-investment calculations. It is not a legal verification service or an investment marketplace.
+_Verify Before You Invest._ This student buildathon prototype demonstrates property-document fingerprinting and fractional-investment calculations. It is not a legal verification service or an investment marketplace.
 
 ## Project setup
 
@@ -37,16 +37,16 @@ These commands compile the contract and run its automated tests on Hardhat's loc
 
 Choose one explicit profile by setting `VITE_MST_NETWORK` in your local `.env`. The tracked `.env.example` contains both profiles:
 
-| Setting | Supplied value |
-| --- | --- |
-| Testnet chain ID | `91562037` |
+| Setting                  | Supplied value                               |
+| ------------------------ | -------------------------------------------- |
+| Testnet chain ID         | `91562037`                                   |
 | Testnet registry address | `0x6883929b0A46dC2f301D294719954313b979dc14` |
-| Testnet RPC | `https://testnetrpc.mstblockchain.com` |
-| Testnet explorer | `https://testnet.mstscan.com/` |
-| Mainnet chain ID | `4646` |
-| Mainnet registry address | **Not deployed/configured** |
-| Mainnet RPC | `https://mariorpc.mstblockchain.com/` |
-| Mainnet explorer | `https://mstscan.com/` |
+| Testnet RPC              | `https://testnetrpc.mstblockchain.com`       |
+| Testnet explorer         | `https://testnet.mstscan.com/`               |
+| Mainnet chain ID         | `4646`                                       |
+| Mainnet registry address | **Not deployed/configured**                  |
+| Mainnet RPC              | `https://mariorpc.mstblockchain.com/`        |
+| Mainnet explorer         | `https://mstscan.com/`                       |
 
 The app uses the BridgeKey provider announced by EIP-6963 with the exact RDNS `io.bridgekey.wallet` for registry reads and writes. It never falls back to `window.ethereum` or another wallet. Network-specific settings are read from the matching `VITE_MST_TESTNET_*` or `VITE_MST_MAINNET_*` variables. The Testnet profile also accepts the prior generic `VITE_MST_*` variables for backward compatibility; those legacy variables are never used by Mainnet. The RPC URL is recorded in the selected profile, while current contract reads and writes use BridgeKey's provider.
 
@@ -157,6 +157,46 @@ Restart the development server after editing `.env`. With the address empty, Mai
 
 - **MST Mainnet contract address:** Not deployed / not configured.
 - **MST Mainnet deployment transaction hash:** Not available.
+
+## Role-Based Authentication & Two-Tier Access Control
+
+MST TokenEstate implements an enterprise two-tier access control architecture designed for the MST Buildathon 2.0:
+
+1. **Tier 1 — Application RBAC (Server-Enforced):** Manages user authentication, session security, participant profiles, off-chain property drafts, user administration, and cryptographic audit logs. Passwords are never stored in plaintext (hashed using PBKDF2 with 100,000 iterations of SHA-512 and unique 16-byte random salts). Session tokens are stored in transient session cookies/memory and are **never** stored in `localStorage`.
+2. **Tier 2 — Smart Contract AccessControl (Blockchain-Enforced):** Final authority for real state transitions on the MST Blockchain (`PropertyToken` and `PropertyDocumentRegistry`). An account executing an on-chain transaction must be connected via BridgeKey with an address possessing the required on-chain role (`ISSUER_ROLE`, `COMPLIANCE_ROLE`, `PAUSER_ROLE`).
+
+### Application Role Matrix
+
+| Application Role         | Default Permissions & Capabilities                                                                                                                         | Route Access                                  | On-Chain Interaction Requirements                                                      |
+| :----------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------- | :------------------------------------------------------------------------------------- |
+| **`ADMIN`**              | Platform user management, role assignment/revocation, security audit log inspection, blockchain system monitoring.                                         | `/admin`, `/dashboard`, all public routes     | Designated `admin` address with `DEFAULT_ADMIN_ROLE` on `PropertyToken`.               |
+| **`PROPERTY_ISSUER`**    | Property asset submission, SHA-256 document bundle hashing, on-chain token registration (`registerProperty`), and authorized unit issuance (`issueUnits`). | `/properties/new`, `/invest`, `/dashboard`    | Connected wallet must hold `ISSUER_ROLE` on `PropertyToken`.                           |
+| **`COMPLIANCE_OFFICER`** | Investor KYC eligibility whitelisting (`setInvestorEligibility`) and secondary transfer toggling (`setTransfersEnabled`).                                  | `/invest`, `/dashboard`                       | Connected wallet must hold `COMPLIANCE_ROLE` on `PropertyToken`.                       |
+| **`INVESTOR`**           | Public participant. Browse properties, inspect document fingerprints, check on-chain token balance, model returns in investment and rental calculators.    | `/dashboard`, `/invest`, `/verify`, `/rental` | Whitelisted by Compliance to receive token units.                                      |
+| **`EMERGENCY_PAUSER`**   | Narrowly scoped emergency circuit breaker. Pause or unpause the `PropertyToken` contract during incident response.                                         | `/dashboard`, `/invest`                       | Connected wallet must hold `PAUSER_ROLE` on `PropertyToken`. General admin restricted. |
+
+### Public Registration & Privilege Escalation Prevention
+
+- All public registrations (`/signup`) **strictly receive the `INVESTOR` role by default**.
+- The signup payload does not accept or permit role overrides. Any client-side attempt to inject `role: "ADMIN"` is strictly overwritten/rejected by the server.
+- Privileged role assignments (`ADMIN`, `PROPERTY_ISSUER`, `COMPLIANCE_OFFICER`, `EMERGENCY_PAUSER`) require authenticated, server-side authorization by an existing platform administrator via `/admin`.
+- Non-administrators cannot modify roles or view audit logs. Every role change and authentication attempt is immutably logged in the security audit trail.
+
+### Pre-Seeded Buildathon Test Profiles
+
+For instant evaluation during the MST Buildathon 2.0, the platform is pre-seeded with verified test accounts across all 5 roles:
+
+| Role                   | Email                        | Password             | Primary Console                                                                       |
+| :--------------------- | :--------------------------- | :------------------- | :------------------------------------------------------------------------------------ |
+| **Administrator**      | `admin@tokenestate.mst`      | `MSTAdmin2026!`      | [`/admin`](http://localhost:3000/admin) · User management & audit trail               |
+| **Property Issuer**    | `issuer@tokenestate.mst`     | `MSTIssuer2026!`     | [`/dashboard`](http://localhost:3000/dashboard) · Property onboarding & unit issuance |
+| **Compliance Officer** | `compliance@tokenestate.mst` | `MSTCompliance2026!` | [`/invest`](http://localhost:3000/invest) · Investor KYC whitelist manager            |
+| **Investor**           | `investor@tokenestate.mst`   | `MSTInvestor2026!`   | [`/dashboard`](http://localhost:3000/dashboard) · Portfolio & fractional calculator   |
+| **Emergency Pauser**   | `pauser@tokenestate.mst`     | `MSTPauser2026!`     | [`/dashboard`](http://localhost:3000/dashboard) · Circuit breaker pause controls      |
+
+_(Evaluators can also click any role card on the [`/login`](http://localhost:3000/login) page to auto-fill these test credentials)._
+
+---
 
 ## Available checks
 
