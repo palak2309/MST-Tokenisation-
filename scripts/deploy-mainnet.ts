@@ -7,9 +7,7 @@ const CONFIRMATION_PHRASE = "DEPLOY MST MAINNET";
 
 async function main() {
   if (process.env.MST_MAINNET_CHAIN_ID?.trim() !== MAINNET_CHAIN_ID.toString()) {
-    throw new Error(
-      "Set MST_MAINNET_CHAIN_ID to exactly 4646 to enable the Mainnet deployment.",
-    );
+    throw new Error("Set MST_MAINNET_CHAIN_ID to exactly 4646 to enable the Mainnet deployment.");
   }
 
   const rpcUrl = process.env.MST_MAINNET_RPC_URL?.trim();
@@ -28,16 +26,12 @@ async function main() {
   }
 
   if (!process.env.MST_MAINNET_PRIVATE_KEY?.trim()) {
-    throw new Error(
-      "MST_MAINNET_PRIVATE_KEY is required in the local process environment.",
-    );
+    throw new Error("MST_MAINNET_PRIVATE_KEY is required in the local process environment.");
   }
 
   const { ethers, networkName } = await network.create();
   if (networkName !== "mstMainnet") {
-    throw new Error(
-      `Refusing deployment on unexpected Hardhat network "${networkName}".`,
-    );
+    throw new Error(`Refusing deployment on unexpected Hardhat network "${networkName}".`);
   }
 
   const actualNetwork = await ethers.provider.getNetwork();
@@ -85,8 +79,7 @@ async function main() {
 }
 
 main().catch((error: unknown) => {
-  const message =
-    error instanceof Error ? error.message : "Unexpected deployment failure.";
+  const message = error instanceof Error ? error.message : "Unexpected deployment failure.";
   console.error("Mainnet deployment halted:", message);
   process.exitCode = 1;
 });

@@ -12,9 +12,15 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as ActivityRouteImport } from './routes/activity'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as InvestRouteImport } from './routes/invest'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as PauseRouteImport } from './routes/pause'
 import { Route as RentalRouteImport } from './routes/rental'
+import { Route as SignupRouteImport } from './routes/signup'
 import { Route as VerifyRouteImport } from './routes/verify'
+import { Route as PropertiesNewRouteImport } from './routes/properties/new'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -31,9 +37,29 @@ const ActivityRoute = ActivityRouteImport.update({
   path: '/activity',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InvestRoute = InvestRouteImport.update({
   id: '/invest',
   path: '/invest',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PauseRoute = PauseRouteImport.update({
+  id: '/pause',
+  path: '/pause',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RentalRoute = RentalRouteImport.update({
@@ -41,9 +67,19 @@ const RentalRoute = RentalRouteImport.update({
   path: '/rental',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VerifyRoute = VerifyRouteImport.update({
   id: '/verify',
   path: '/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PropertiesNewRoute = PropertiesNewRouteImport.update({
+  id: '/properties/new',
+  path: '/properties/new',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -51,49 +87,103 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/activity': typeof ActivityRoute
+  '/admin': typeof AdminRoute
+  '/dashboard': typeof DashboardRoute
   '/invest': typeof InvestRoute
+  '/login': typeof LoginRoute
+  '/pause': typeof PauseRoute
   '/rental': typeof RentalRoute
+  '/signup': typeof SignupRoute
   '/verify': typeof VerifyRoute
+  '/properties/new': typeof PropertiesNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/activity': typeof ActivityRoute
+  '/admin': typeof AdminRoute
+  '/dashboard': typeof DashboardRoute
   '/invest': typeof InvestRoute
+  '/login': typeof LoginRoute
+  '/pause': typeof PauseRoute
   '/rental': typeof RentalRoute
+  '/signup': typeof SignupRoute
   '/verify': typeof VerifyRoute
+  '/properties/new': typeof PropertiesNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/activity': typeof ActivityRoute
+  '/admin': typeof AdminRoute
+  '/dashboard': typeof DashboardRoute
   '/invest': typeof InvestRoute
+  '/login': typeof LoginRoute
+  '/pause': typeof PauseRoute
   '/rental': typeof RentalRoute
+  '/signup': typeof SignupRoute
   '/verify': typeof VerifyRoute
+  '/properties/new': typeof PropertiesNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/activity' | '/invest' | '/rental' | '/verify'
+  fullPaths:
+    | '/'
+    | '/about'
+    | '/activity'
+    | '/admin'
+    | '/dashboard'
+    | '/invest'
+    | '/login'
+    | '/pause'
+    | '/rental'
+    | '/signup'
+    | '/verify'
+    | '/properties/new'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/activity' | '/invest' | '/rental' | '/verify'
+  to:
+    | '/'
+    | '/about'
+    | '/activity'
+    | '/admin'
+    | '/dashboard'
+    | '/invest'
+    | '/login'
+    | '/pause'
+    | '/rental'
+    | '/signup'
+    | '/verify'
+    | '/properties/new'
   id:
     | '__root__'
     | '/'
     | '/about'
     | '/activity'
+    | '/admin'
+    | '/dashboard'
     | '/invest'
+    | '/login'
+    | '/pause'
     | '/rental'
+    | '/signup'
     | '/verify'
+    | '/properties/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   ActivityRoute: typeof ActivityRoute
+  AdminRoute: typeof AdminRoute
+  DashboardRoute: typeof DashboardRoute
   InvestRoute: typeof InvestRoute
+  LoginRoute: typeof LoginRoute
+  PauseRoute: typeof PauseRoute
   RentalRoute: typeof RentalRoute
+  SignupRoute: typeof SignupRoute
   VerifyRoute: typeof VerifyRoute
+  PropertiesNewRoute: typeof PropertiesNewRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -119,11 +209,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ActivityRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/invest': {
       id: '/invest'
       path: '/invest'
       fullPath: '/invest'
       preLoaderRoute: typeof InvestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pause': {
+      id: '/pause'
+      path: '/pause'
+      fullPath: '/pause'
+      preLoaderRoute: typeof PauseRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/rental': {
@@ -133,11 +251,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RentalRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/verify': {
       id: '/verify'
       path: '/verify'
       fullPath: '/verify'
       preLoaderRoute: typeof VerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/properties/new': {
+      id: '/properties/new'
+      path: '/properties/new'
+      fullPath: '/properties/new'
+      preLoaderRoute: typeof PropertiesNewRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -147,9 +279,15 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   ActivityRoute: ActivityRoute,
+  AdminRoute: AdminRoute,
+  DashboardRoute: DashboardRoute,
   InvestRoute: InvestRoute,
+  LoginRoute: LoginRoute,
+  PauseRoute: PauseRoute,
   RentalRoute: RentalRoute,
+  SignupRoute: SignupRoute,
   VerifyRoute: VerifyRoute,
+  PropertiesNewRoute: PropertiesNewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

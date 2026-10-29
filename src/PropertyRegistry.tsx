@@ -116,7 +116,7 @@ export default function PropertyRegistry() {
           htmlFor="registry-document"
           className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed p-5 text-center hover:bg-muted/50"
         >
-          <FileUp className="h-5 w-5 text-gold" />
+          <FileUp className="h-5 w-5 text-primary" />
           <span className="text-sm font-medium">{file ? file.name : "Choose a document"}</span>
           <span className="text-xs text-muted-foreground">PDF, PNG, JPG, WEBP · max 10 MB</span>
         </label>

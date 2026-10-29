@@ -14,6 +14,8 @@
     "test:watch": "vitest",
     "compile:contract": "hardhat compile",
     "test:contract": "hardhat test",
+    "deploy:testnet": "hardhat run scripts/deploy-testnet-token.ts --network mstTestnet",
+    "grant:issuer": "hardhat run scripts/grant-issuer-role.ts --network mstTestnet",
     "deploy:mainnet": "hardhat run scripts/deploy-mainnet.ts --build-profile production --network mstMainnet"
   },
   "overrides": {

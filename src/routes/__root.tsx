@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import { Toaster } from "sonner";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppShell } from "@/components/AppShell";
+import { AuthProvider } from "@/lib/auth/AuthContext";
 
 function NotFoundComponent() {
   return (
@@ -44,15 +45,36 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
 
+  const isDev = import.meta.env.DEV;
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  const errorStack = error instanceof Error ? error.stack : undefined;
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
+      <div className="max-w-xl text-center">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
           This page didn't load
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Something went wrong on our end. You can try refreshing or head back home.
         </p>
+
+        {isDev && (
+          <div className="mt-4 text-left rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-xs font-mono">
+            <p className="font-semibold text-destructive">{errorMessage}</p>
+            {errorStack && (
+              <details className="mt-2 text-muted-foreground">
+                <summary className="cursor-pointer hover:underline font-sans">
+                  View stack trace
+                </summary>
+                <pre className="mt-2 whitespace-pre-wrap overflow-x-auto text-[11px] leading-tight">
+                  {errorStack}
+                </pre>
+              </details>
+            )}
+          </div>
+        )}
+
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => {
@@ -124,10 +146,12 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AppShell>
-        <Outlet />
-      </AppShell>
-      <Toaster position="top-right" />
+      <AuthProvider>
+        <AppShell>
+          <Outlet />
+        </AppShell>
+        <Toaster position="top-right" />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

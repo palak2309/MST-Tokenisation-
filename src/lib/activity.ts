@@ -1,22 +1,66 @@
 import { useSyncExternalStore } from "react";
 
+export type ActivityKind =
+  | "Document hashed"
+  | "Hash compared"
+  | "Fingerprint registered"
+  | "Contribution"
+  | "Status update"
+  | "Investor Eligibility"
+  | "Property Registered"
+  | "Units Issued"
+  | "Transfers Updated"
+  | "Contract Paused"
+  | "Contract Unpaused";
+
 export interface ActivityRecord {
   id: string;
   time: string; // ISO
-  kind: "Document hashed" | "Hash compared" | "Fingerprint registered" | "Contribution" | "Status update";
-  propertyId: string;
+  kind: ActivityKind;
+  propertyId?: string | undefined;
   detail: string;
   /** "demo" = simulated, never a real chain record. "onchain" = confirmed on a real network. */
   source: "demo" | "onchain";
-  txHash?: string;
+  txHash?: string | undefined;
   explorerUrl?: string | undefined;
 }
 
 const SEED: ActivityRecord[] = [
-  { id: "s1", time: "2026-10-20T09:12:00Z", kind: "Fingerprint registered", propertyId: "PRP-PUN-0142", detail: "Sale deed fingerprint registered (simulated)", source: "demo", txHash: "DEMO-0001" },
-  { id: "s2", time: "2026-10-21T14:40:00Z", kind: "Contribution", propertyId: "PRP-MUM-0087", detail: "Hypothetical contribution of ₹2,50,000 (sample investor)", source: "demo", txHash: "DEMO-0002" },
-  { id: "s3", time: "2026-10-22T11:05:00Z", kind: "Status update", propertyId: "PRP-PUN-0142", detail: "Mutation entry marked Requires Attention", source: "demo" },
-  { id: "s4", time: "2026-10-23T16:20:00Z", kind: "Contribution", propertyId: "PRP-NSK-0219", detail: "Hypothetical contribution of ₹1,00,000 (sample investor)", source: "demo", txHash: "DEMO-0003" },
+  {
+    id: "s1",
+    time: "2026-10-20T09:12:00Z",
+    kind: "Fingerprint registered",
+    propertyId: "PRP-PUN-0142",
+    detail: "Sale deed fingerprint registered (simulated)",
+    source: "demo",
+    txHash: "DEMO-0001",
+  },
+  {
+    id: "s2",
+    time: "2026-10-21T14:40:00Z",
+    kind: "Contribution",
+    propertyId: "PRP-MUM-0087",
+    detail: "Hypothetical contribution of ₹2,50,000 (sample investor)",
+    source: "demo",
+    txHash: "DEMO-0002",
+  },
+  {
+    id: "s3",
+    time: "2026-10-22T11:05:00Z",
+    kind: "Status update",
+    propertyId: "PRP-PUN-0142",
+    detail: "Mutation entry marked Requires Attention",
+    source: "demo",
+  },
+  {
+    id: "s4",
+    time: "2026-10-23T16:20:00Z",
+    kind: "Contribution",
+    propertyId: "PRP-NSK-0219",
+    detail: "Hypothetical contribution of ₹1,00,000 (sample investor)",
+    source: "demo",
+    txHash: "DEMO-0003",
+  },
 ];
 
 let records: ActivityRecord[] = SEED;
@@ -26,7 +70,11 @@ let counter = 4;
 export function addActivity(r: Omit<ActivityRecord, "id" | "time"> & { time?: string }) {
   counter += 1;
   const rec: ActivityRecord = { id: `r${counter}`, time: r.time ?? new Date().toISOString(), ...r };
-  if (rec.source === "demo" && rec.txHash === undefined && (rec.kind === "Contribution" || rec.kind === "Fingerprint registered"))
+  if (
+    rec.source === "demo" &&
+    rec.txHash === undefined &&
+    (rec.kind === "Contribution" || rec.kind === "Fingerprint registered")
+  )
     rec.txHash = `DEMO-${String(counter).padStart(4, "0")}`;
   records = [rec, ...records];
   listeners.forEach((l) => l());
@@ -42,6 +90,19 @@ export function useActivity() {
     () => records,
     () => SEED,
   );
+}
+
+/**
+ * Clearly partition confirmed on-chain transactions from local/session simulated records.
+ * Prevents simulated events from being conflated with verified blockchain activity.
+ */
+export function separateActivityRecords(list: ActivityRecord[]): {
+  confirmedOnChain: ActivityRecord[];
+  localSimulated: ActivityRecord[];
+} {
+  const confirmedOnChain = list.filter((r) => r.source === "onchain");
+  const localSimulated = list.filter((r) => r.source === "demo");
+  return { confirmedOnChain, localSimulated };
 }
 
 /** In-session demo reference fingerprints registered by the user (never sent anywhere). */
