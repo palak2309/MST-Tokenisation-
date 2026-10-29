@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { id, ZeroHash } from "ethers";
 import {
   calculateRequiredBalance,
@@ -8,6 +9,9 @@ import {
   validateAdminAddress,
   validateConfirmationPhrase,
   validateTestnetChainId,
+  isDirectExecution,
+  normalizeScriptPath,
+  matchesScriptPath,
   TESTNET_CHAIN_ID,
   CONFIRMATION_PHRASE,
   DEFAULT_FEE_BUFFER_PERCENT,
@@ -265,6 +269,107 @@ describe("MST Testnet PropertyToken Deployment & Role Grant Safeguards", () => {
       const surplusCheck = validateGrantBalance(1_000_000_000_000_000_000n, estimatedCost, 20n);
       expect(surplusCheck.sufficient).toBe(true);
       expect(surplusCheck.deficit).toBe(0n);
+    });
+  });
+
+  describe("Entry-Point Direct Execution Safeguards (Hardhat 3 runner compatibility)", () => {
+    const scriptMetaUrl = pathToFileURL(resolve("scripts/deploy-testnet-token.ts")).href;
+    const cleanEnv: NodeJS.ProcessEnv = { NODE_ENV: "production" };
+
+    it("detects Hardhat 3 CLI run with --no-compile and --network flags", () => {
+      const argv = [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "C:\\Users\\Palak Pathan\\Desktop\\MST-Tokenisation-\\node_modules\\hardhat\\dist\\src\\cli.js",
+        "run",
+        "--no-compile",
+        "scripts/deploy-testnet-token.ts",
+        "--network",
+        "mstTestnet",
+      ];
+      expect(isDirectExecution(scriptMetaUrl, argv, cleanEnv)).toBe(true);
+    });
+
+    it("detects Hardhat 3 CLI run with Windows backslashes in script path", () => {
+      const argv = [
+        "node",
+        "/node_modules/hardhat/dist/src/cli.js",
+        "run",
+        "scripts\\deploy-testnet-token.ts",
+        "--network",
+        "mstTestnet",
+      ];
+      expect(isDirectExecution(scriptMetaUrl, argv, cleanEnv)).toBe(true);
+    });
+
+    it("detects Hardhat 3 CLI run with ./ relative path", () => {
+      const argv = [
+        "node",
+        "/node_modules/hardhat/dist/src/cli.js",
+        "run",
+        "--no-compile",
+        "./scripts/deploy-testnet-token.ts",
+      ];
+      expect(isDirectExecution(scriptMetaUrl, argv, cleanEnv)).toBe(true);
+    });
+
+    it("detects Hardhat 3 CLI run with absolute script path", () => {
+      const argv = [
+        "node",
+        "/node_modules/hardhat/dist/src/cli.js",
+        "run",
+        resolve("scripts/deploy-testnet-token.ts"),
+      ];
+      expect(isDirectExecution(scriptMetaUrl, argv, cleanEnv)).toBe(true);
+    });
+
+    it("detects direct Node.js execution where argv[1] is the script", () => {
+      const argv = ["node", "scripts/deploy-testnet-token.ts"];
+      expect(isDirectExecution(scriptMetaUrl, argv, cleanEnv)).toBe(true);
+    });
+
+    it("rejects execution when Hardhat runs a different script", () => {
+      const argv = [
+        "node",
+        "/node_modules/hardhat/dist/src/cli.js",
+        "run",
+        "scripts/grant-issuer-role.ts",
+        "--network",
+        "mstTestnet",
+      ];
+      expect(isDirectExecution(scriptMetaUrl, argv, cleanEnv)).toBe(false);
+    });
+
+    it("rejects execution when Hardhat task is not 'run' (e.g. test or compile)", () => {
+      const argv = [
+        "node",
+        "/node_modules/hardhat/dist/src/cli.js",
+        "test",
+        "scripts/deploy-testnet-token.ts",
+      ];
+      expect(isDirectExecution(scriptMetaUrl, argv, cleanEnv)).toBe(false);
+    });
+
+    it("rejects execution when running inside test runners (VITEST, HARDHAT_TEST, or NODE_ENV=test)", () => {
+      const argv = [
+        "node",
+        "/node_modules/hardhat/dist/src/cli.js",
+        "run",
+        "scripts/deploy-testnet-token.ts",
+      ];
+      expect(isDirectExecution(scriptMetaUrl, argv, { VITEST: "true" })).toBe(false);
+      expect(isDirectExecution(scriptMetaUrl, argv, { HARDHAT_TEST: "true" })).toBe(false);
+      expect(isDirectExecution(scriptMetaUrl, argv, { NODE_ENV: "test" })).toBe(false);
+    });
+
+    it("rejects execution when imported during Vitest test runs by default", () => {
+      expect(isDirectExecution(scriptMetaUrl)).toBe(false);
+    });
+
+    it("rejects execution when argv is too short or invalid", () => {
+      expect(isDirectExecution(scriptMetaUrl, ["node"], cleanEnv)).toBe(false);
+      expect(isDirectExecution("", ["node", "scripts/deploy-testnet-token.ts"], cleanEnv)).toBe(
+        false,
+      );
     });
   });
 });
