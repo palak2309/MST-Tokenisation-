@@ -147,9 +147,12 @@ function DashboardPageContent() {
 
             <div className="rounded-xl border border-border bg-card p-5 space-y-2">
               <p className="text-xs text-muted-foreground font-medium">Blockchain Network</p>
-              <p className="text-2xl font-bold text-foreground">MST Testnet</p>
+              <p className="text-2xl font-bold text-foreground">
+                {chainConfig.networkName ?? "MST Testnet"}
+              </p>
               <p className="text-xs text-muted-foreground">
-                Target chain ID 91562037 · Registry verified.
+                Target chain ID {chainConfig.chainId ?? "91562037"} ·{" "}
+                {chainConfig.contractAddress ? "Registry verified." : "Unconfigured / Demo Mode."}
               </p>
               <Link to="/activity" className="inline-block pt-2">
                 <Button size="sm" variant="outline" className="gap-2">

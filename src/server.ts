@@ -50,7 +50,7 @@ export default {
     try {
       const url = new URL(request.url);
       if (url.pathname.startsWith("/api/auth")) {
-        return await handleAuthApiRequest(request);
+        return await handleAuthApiRequest(request, env);
       }
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);

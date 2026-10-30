@@ -1,0 +1,14 @@
+{
+  "name": "palak2309-mst-tokenisation",
+  "compatibility_date": "2026-10-30",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "tokenestate-db",
+      "database_id": "ef8f53ea-eaa8-4671-94ef-828ed8c68569",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

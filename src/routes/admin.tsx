@@ -33,6 +33,7 @@ import {
   ROLES,
   subscribeToBridgeKeyEvents,
   TESTNET_ADMIN_ACCOUNT,
+  MAINNET_ADMIN_ACCOUNT,
   walletErrorMessage,
 } from "@/lib/blockchain";
 import { useNetwork } from "@/contractConfig";
@@ -55,6 +56,7 @@ function AdminPageWithGuard() {
 
 function AdminPageContent() {
   const { assignRole, user: currentAdmin } = useAuth();
+  const { config } = useNetwork();
   const [activeTab, setActiveTab] = useState<"users" | "audit" | "system">("users");
 
   const [users, setUsers] = useState<User[]>([]);
@@ -172,7 +174,7 @@ function AdminPageContent() {
                 <code className="text-foreground">COMPLIANCE_ROLE</code>,{" "}
                 <code className="text-foreground">PAUSER_ROLE</code>). On-chain roles require
                 separate cryptographic transactions signed by the contract administrator using
-                BridgeKey on MST Testnet.
+                BridgeKey on the target MST network.
               </p>
             </div>
           </div>
@@ -370,26 +372,24 @@ function AdminPageContent() {
               <div className="flex justify-between py-1 border-b">
                 <span className="text-muted-foreground">Target Network:</span>
                 <span className="font-semibold text-foreground">
-                  {chainConfig.networkName ?? "MST Testnet"}
+                  {config.networkName ?? "MST Testnet"}
                 </span>
               </div>
               <div className="flex justify-between py-1 border-b">
                 <span className="text-muted-foreground">Chain ID:</span>
-                <span className="font-mono text-foreground">
-                  {chainConfig.chainId ?? "91562037"}
-                </span>
+                <span className="font-mono text-foreground">{config.chainId ?? "91562037"}</span>
               </div>
               <div className="flex justify-between py-1 border-b">
                 <span className="text-muted-foreground">Document Registry:</span>
                 <span className="font-mono text-[11px] text-foreground">
-                  {chainConfig.contractAddress ?? "0x6883929b0A46dC2f301D294719954313b979dc14"}
+                  {config.contractAddress ?? "Not configured"}
                 </span>
               </div>
               <div className="flex justify-between py-1 border-b">
                 <span className="text-muted-foreground">PropertyToken Status:</span>
                 <span className="font-mono text-[11px] text-foreground">
-                  {chainConfig.tokenContractAddress
-                    ? chainConfig.tokenContractAddress
+                  {config.tokenContractAddress
+                    ? config.tokenContractAddress
                     : "Not configured (Pre-deployment ready)"}
                 </span>
               </div>
@@ -414,13 +414,12 @@ function TemporaryComplianceRoleGrantAction() {
   const [verifiedOnChain, setVerifiedOnChain] = useState<boolean | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const { isTestnet, config } = useNetwork();
-  const contractAddress =
-    config.tokenContractAddress || "0x681Ef61D12372e040EE5f6e058932818aA29407F";
-  const expectedAdmin = TESTNET_ADMIN_ACCOUNT;
+  const { isTestnet, isMainnet, config } = useNetwork();
+  const contractAddress = config.tokenContractAddress;
+  const expectedAdmin = isMainnet ? MAINNET_ADMIN_ACCOUNT : TESTNET_ADMIN_ACCOUNT;
 
   const refreshRecipientStatus = useCallback(async () => {
-    if (!isTestnet) return;
+    if (!contractAddress) return;
     try {
       const hasCompliance = await hasRoleOnChain(ROLES.COMPLIANCE_ROLE, expectedAdmin);
       setRecipientHasCompliance(hasCompliance);
@@ -430,10 +429,14 @@ function TemporaryComplianceRoleGrantAction() {
     } catch {
       // Ignored if offline
     }
-  }, [isTestnet, expectedAdmin]);
+  }, [contractAddress, expectedAdmin]);
 
   const verifySignerRole = useCallback(
     async (address: string) => {
+      if (!contractAddress) {
+        setSignerHasAdmin(null);
+        return;
+      }
       setCheckingRoles(true);
       try {
         const hasAdmin = await hasRoleOnChain(ROLES.DEFAULT_ADMIN_ROLE, address);
@@ -446,12 +449,23 @@ function TemporaryComplianceRoleGrantAction() {
         setCheckingRoles(false);
       }
     },
-    [expectedAdmin],
+    [contractAddress, expectedAdmin],
   );
 
   useEffect(() => {
+    setRecipientHasCompliance(null);
+    setVerifiedOnChain(null);
+    setConfirmedTxHash(null);
+    setPendingTxHash(null);
+    setErrorMsg(null);
     refreshRecipientStatus();
-  }, [refreshRecipientStatus]);
+  }, [config.chainId, contractAddress, refreshRecipientStatus]);
+
+  useEffect(() => {
+    if (walletAddress) {
+      verifySignerRole(walletAddress);
+    }
+  }, [config.chainId, contractAddress, walletAddress, verifySignerRole]);
 
   const handleConnectWallet = async () => {
     setConnecting(true);
@@ -496,10 +510,20 @@ function TemporaryComplianceRoleGrantAction() {
   const isSignerAccount1 = Boolean(
     walletAddress && walletAddress.toLowerCase() === expectedAdmin.toLowerCase(),
   );
-  const isWalletOnTestnet = walletChainId === "91562037";
+  const isWalletOnCorrectNetwork = Boolean(
+    walletChainId &&
+    config.chainId &&
+    (() => {
+      try {
+        return BigInt(walletChainId) === BigInt(config.chainId);
+      } catch {
+        return walletChainId === config.chainId;
+      }
+    })(),
+  );
   const canGrant =
-    isTestnet &&
-    isWalletOnTestnet &&
+    Boolean(contractAddress) &&
+    isWalletOnCorrectNetwork &&
     isSignerAccount1 &&
     signerHasAdmin === true &&
     !recipientHasCompliance &&
@@ -523,7 +547,8 @@ function TemporaryComplianceRoleGrantAction() {
       setVerifiedOnChain(isNowCompliance);
       setRecipientHasCompliance(isNowCompliance);
 
-      toast.success("COMPLIANCE_ROLE granted on MST Testnet!", {
+      const networkLabel = config.networkName ?? (isTestnet ? "MST Testnet" : "MST Mainnet");
+      toast.success(`COMPLIANCE_ROLE granted on ${networkLabel}!`, {
         description: `Tx: ${result.txHash.slice(0, 10)}... | hasRole verified on-chain.`,
       });
     } catch (err) {
@@ -545,11 +570,15 @@ function TemporaryComplianceRoleGrantAction() {
             <div className="flex items-center gap-2">
               <h3 className="font-bold text-foreground text-sm">Grant On-Chain Compliance Role</h3>
               <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300">
-                Temporary Testnet Admin Action
+                {isTestnet
+                  ? "Temporary Testnet Admin Action"
+                  : `Admin Action (${config.networkName ?? "MST Mainnet"})`}
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Allows the verified MST Testnet contract administrator to invoke{" "}
+              Allows the verified{" "}
+              {config.networkName ?? (isTestnet ? "MST Testnet" : "MST Mainnet")} contract
+              administrator to invoke{" "}
               <code className="text-foreground">grantRole(COMPLIANCE_ROLE, Account 1)</code> via
               BridgeKey.
             </p>
@@ -560,7 +589,7 @@ function TemporaryComplianceRoleGrantAction() {
           <Button
             size="sm"
             onClick={handleConnectWallet}
-            disabled={connecting || !isTestnet}
+            disabled={connecting || !contractAddress}
             className="gap-2 shrink-0 bg-amber-600 hover:bg-amber-700 text-white"
           >
             {connecting ? (
@@ -580,13 +609,14 @@ function TemporaryComplianceRoleGrantAction() {
         )}
       </div>
 
-      {/* Network restriction banner */}
-      {!isTestnet && (
+      {/* Contract configuration banner */}
+      {!contractAddress && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive flex items-center gap-2">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <span>
-            This action is strictly restricted to <strong>MST Testnet (Chain ID 91562037)</strong>.
-            Switch network to Testnet to enable.
+            PropertyToken contract is not configured on{" "}
+            <strong>{config.networkName ?? "MST"}</strong>. Configure the contract address in
+            environment variables to enable this action.
           </span>
         </div>
       )}
@@ -598,13 +628,13 @@ function TemporaryComplianceRoleGrantAction() {
             Network
           </span>
           <div className="flex items-center gap-1.5 font-medium">
-            {isTestnet ? (
+            {contractAddress ? (
               <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
             ) : (
               <AlertCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
             )}
             <span className="truncate">
-              {chainConfig.networkName} ({chainConfig.chainId})
+              {config.networkName ?? "MST"} ({config.chainId ?? "—"})
             </span>
           </div>
         </div>
@@ -616,10 +646,12 @@ function TemporaryComplianceRoleGrantAction() {
           <div className="flex items-center gap-1.5 font-medium">
             {!walletChainId ? (
               <span className="text-muted-foreground italic">Wallet not connected</span>
-            ) : isWalletOnTestnet ? (
+            ) : isWalletOnCorrectNetwork ? (
               <>
                 <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
-                <span>Testnet (91562037)</span>
+                <span>
+                  {config.networkName ?? "MST"} ({config.chainId})
+                </span>
               </>
             ) : (
               <>
@@ -684,21 +716,28 @@ function TemporaryComplianceRoleGrantAction() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
           <div>
             <span className="text-muted-foreground">Target Contract: </span>
-            <a
-              href={`https://testnet.mstscan.com/address/${contractAddress}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-mono text-primary hover:underline inline-flex items-center gap-1"
-            >
-              <span>
-                {contractAddress.slice(0, 10)}...{contractAddress.slice(-8)}
-              </span>
-              <ExternalLink className="h-2.5 w-2.5" />
-            </a>
+            {contractAddress ? (
+              <a
+                href={`${config.explorerUrl?.replace(/\/$/, "") ?? (isTestnet ? "https://testnet.mstscan.com" : "https://mstscan.com")}/address/${contractAddress}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-primary hover:underline inline-flex items-center gap-1"
+              >
+                <span>
+                  {contractAddress.slice(0, 10)}...{contractAddress.slice(-8)}
+                </span>
+                <ExternalLink className="h-2.5 w-2.5" />
+              </a>
+            ) : (
+              <span className="font-mono text-muted-foreground">Not configured</span>
+            )}
           </div>
           <div>
             <span className="text-muted-foreground">Target Network: </span>
-            <span className="font-mono text-foreground">MST Testnet (Chain ID 91562037)</span>
+            <span className="font-mono text-foreground">
+              {config.networkName ?? (isTestnet ? "MST Testnet" : "MST Mainnet")} (Chain ID{" "}
+              {config.chainId})
+            </span>
           </div>
           <div>
             <span className="text-muted-foreground">Admin Signer (From): </span>
@@ -731,8 +770,10 @@ function TemporaryComplianceRoleGrantAction() {
             <p className="font-semibold text-success">Account 1 Already Holds COMPLIANCE_ROLE</p>
             <p className="text-[11px] opacity-90">
               Verified on-chain via <code className="text-foreground">hasRole</code> on contract{" "}
-              <code className="text-foreground">{contractAddress.slice(0, 8)}...</code>. No further
-              action needed.
+              <code className="text-foreground">
+                {contractAddress ? `${contractAddress.slice(0, 8)}...` : "Not configured"}
+              </code>
+              . No further action needed.
             </p>
           </div>
         </div>
@@ -766,7 +807,9 @@ function TemporaryComplianceRoleGrantAction() {
             <a
               href={
                 explorerTxUrl(confirmedTxHash) ||
-                `https://testnet.mstscan.com/tx/${confirmedTxHash}`
+                (isTestnet
+                  ? `https://testnet.mstscan.com/tx/${confirmedTxHash}`
+                  : `https://mstscan.com/tx/${confirmedTxHash}`)
               }
               target="_blank"
               rel="noopener noreferrer"

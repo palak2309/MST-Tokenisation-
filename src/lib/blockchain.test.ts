@@ -11,10 +11,14 @@ import {
   hasRoleOnChain,
   isLiveConfigured,
   isTokenLiveConfigured,
+  MAINNET_CHAIN_ID_NUM,
   parseContractError,
   ROLES,
   subscribeToBridgeKeyEvents,
+  switchWalletNetwork,
   TESTNET_ADMIN_ACCOUNT,
+  MAINNET_ADMIN_ACCOUNT,
+  ADMIN_ACCOUNT,
   TESTNET_CHAIN_ID_NUM,
   type BridgeKeyProviderEvents,
 } from "./blockchain";
@@ -254,10 +258,13 @@ describe("blockchain helpers", () => {
     });
   });
 
-  describe("grantRoleOnChain testnet safeguards", () => {
-    it("exports verified testnet admin address and chain ID", () => {
+  describe("grantRoleOnChain and multi-network safeguards", () => {
+    it("exports verified admin address and chain IDs", () => {
       expect(TESTNET_ADMIN_ACCOUNT).toBe("0xEF9fE181ed6659096895bb54f71487B67E3b262b");
+      expect(MAINNET_ADMIN_ACCOUNT).toBe("0xEF9fE181ed6659096895bb54f71487B67E3b262b");
+      expect(ADMIN_ACCOUNT).toBe("0xEF9fE181ed6659096895bb54f71487B67E3b262b");
       expect(TESTNET_CHAIN_ID_NUM).toBe(91562037n);
+      expect(MAINNET_CHAIN_ID_NUM).toBe(4646n);
       expect(ROLES.COMPLIANCE_ROLE).toBe(
         "0x442a94f1a1fac79af32856af2a64f63648cfa2ef3b98610a5bb7cbec4cee6985",
       );
@@ -266,10 +273,10 @@ describe("blockchain helpers", () => {
       );
     });
 
-    it("rejects grantRoleOnChain when active network is Mainnet", async () => {
+    it("rejects grantRoleOnChain when active network token contract is unconfigured", async () => {
       setActiveNetwork("mainnet");
       await expect(grantRoleOnChain(ROLES.COMPLIANCE_ROLE, TESTNET_ADMIN_ACCOUNT)).rejects.toThrow(
-        "grantRoleOnChain is only allowed on MST Testnet (Chain ID 91562037).",
+        /Mainnet PropertyToken contract not deployed\/configured/i,
       );
       setActiveNetwork("testnet");
     });
@@ -280,6 +287,118 @@ describe("blockchain helpers", () => {
       setActiveNetwork("mainnet");
       expect(await hasRoleOnChain(ROLES.COMPLIANCE_ROLE, TESTNET_ADMIN_ACCOUNT)).toBe(false);
       setActiveNetwork("testnet");
+    });
+
+    it("enforces Testnet chain ID 91562037 when granting role on Testnet", async () => {
+      setActiveNetwork("testnet");
+      const mockEth = {
+        request: vi.fn(async ({ method }) => {
+          if (method === "eth_requestAccounts") return [TESTNET_ADMIN_ACCOUNT];
+          if (method === "eth_chainId") return "0x1226"; // 4646 (Mainnet)
+          return null;
+        }),
+      } as unknown as Eip1193Provider;
+
+      const announce = () => {
+        window.dispatchEvent(providerAnnouncement(BRIDGEKEY_RDNS, mockEth));
+      };
+      window.addEventListener("eip6963:requestProvider", announce);
+
+      try {
+        await expect(
+          grantRoleOnChain(ROLES.COMPLIANCE_ROLE, TESTNET_ADMIN_ACCOUNT),
+        ).rejects.toThrow(/Expected: 91562037 \(MST Testnet\)/i);
+      } finally {
+        window.removeEventListener("eip6963:requestProvider", announce);
+      }
+    });
+
+    it("enforces Mainnet chain ID 4646 when granting role on Mainnet", async () => {
+      import.meta.env.VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS =
+        "0x39985d784615f307D34B8143768a54bEEaB94537";
+      process.env.VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS =
+        "0x39985d784615f307D34B8143768a54bEEaB94537";
+      setActiveNetwork("mainnet");
+
+      const mockEth = {
+        request: vi.fn(async ({ method }) => {
+          if (method === "eth_requestAccounts") return [MAINNET_ADMIN_ACCOUNT];
+          if (method === "eth_chainId") return "0x5752035"; // 91562037 (Testnet)
+          return null;
+        }),
+      } as unknown as Eip1193Provider;
+
+      const announce = () => {
+        window.dispatchEvent(providerAnnouncement(BRIDGEKEY_RDNS, mockEth));
+      };
+      window.addEventListener("eip6963:requestProvider", announce);
+
+      try {
+        await expect(
+          grantRoleOnChain(ROLES.COMPLIANCE_ROLE, MAINNET_ADMIN_ACCOUNT),
+        ).rejects.toThrow(/Expected: 4646 \(MST Mainnet\)/i);
+      } finally {
+        window.removeEventListener("eip6963:requestProvider", announce);
+        import.meta.env.VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS = "";
+        process.env.VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS = "";
+        setActiveNetwork("testnet");
+      }
+    });
+  });
+
+  describe("switchWalletNetwork EIP-3326 and EIP-3085 support", () => {
+    it("requests wallet_switchEthereumChain with hex chain ID", async () => {
+      const mockRequest = vi.fn().mockResolvedValue(null);
+      const mockProvider = { request: mockRequest } as unknown as Eip1193Provider;
+
+      await switchWalletNetwork("mainnet", mockProvider);
+      expect(mockRequest).toHaveBeenCalledWith({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: "0x1226" }],
+      });
+
+      await switchWalletNetwork("testnet", mockProvider);
+      expect(mockRequest).toHaveBeenCalledWith({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: "0x5752035" }],
+      });
+    });
+
+    it("falls back to wallet_addEthereumChain on error 4902 (unrecognized chain)", async () => {
+      const mockRequest = vi
+        .fn()
+        .mockRejectedValueOnce({ code: 4902, message: "Unrecognized chain ID" })
+        .mockResolvedValueOnce(null);
+      const mockProvider = { request: mockRequest } as unknown as Eip1193Provider;
+
+      await switchWalletNetwork("mainnet", mockProvider);
+      expect(mockRequest).toHaveBeenNthCalledWith(1, {
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: "0x1226" }],
+      });
+      expect(mockRequest).toHaveBeenNthCalledWith(2, {
+        method: "wallet_addEthereumChain",
+        params: [
+          expect.objectContaining({
+            chainId: "0x1226",
+            chainName: "MST Mainnet",
+            nativeCurrency: { name: "MST", symbol: "MST", decimals: 18 },
+            rpcUrls: ["https://mariorpc.mstblockchain.com/"],
+            blockExplorerUrls: ["https://mstscan.com/"],
+          }),
+        ],
+      });
+    });
+
+    it("re-throws error when user rejects switch (code 4001)", async () => {
+      const mockRequest = vi.fn().mockRejectedValue({ code: 4001, message: "User rejected" });
+      const mockProvider = { request: mockRequest } as unknown as Eip1193Provider;
+
+      await expect(switchWalletNetwork("mainnet", mockProvider)).rejects.toEqual({
+        code: 4001,
+        message: "User rejected",
+      });
+      expect(mockRequest).toHaveBeenCalledTimes(1);
     });
   });
 });

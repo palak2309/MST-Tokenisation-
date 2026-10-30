@@ -9,6 +9,7 @@ import {
   signUpUser,
   validateSession,
 } from "./serverAuth";
+import { extractD1FromEnv } from "./d1Adapter";
 import { APP_ROLES, type AppRole } from "./types";
 
 const COOKIE_NAME = "mst_session_token";
@@ -192,7 +193,8 @@ function errorResponse(message: string, status = 400, setCookieHeader?: string):
   });
 }
 
-export async function handleAuthApiRequest(request: Request): Promise<Response> {
+export async function handleAuthApiRequest(request: Request, env?: unknown): Promise<Response> {
+  const db = extractD1FromEnv(env, request);
   const url = new URL(request.url, "http://localhost");
   const path = url.pathname.replace(/\/$/, "");
   const method = request.method.toUpperCase();
@@ -206,7 +208,7 @@ export async function handleAuthApiRequest(request: Request): Promise<Response> 
 
   try {
     if (method === "GET" && path === "/api/auth/storage-status") {
-      return jsonResponse({ status: getAuthStorageStatus() });
+      return jsonResponse({ status: getAuthStorageStatus(db) });
     }
 
     if (method === "POST" && path === "/api/auth/login") {
@@ -218,7 +220,7 @@ export async function handleAuthApiRequest(request: Request): Promise<Response> 
         return errorResponse("Email and password are required.", 400);
       }
 
-      const result = await loginUser({ email, password });
+      const result = await loginUser({ email, password, db });
       const cookieHeader = createSessionCookieHeader(result.session.id, isSecure);
       return jsonResponse(result, 200, cookieHeader);
     }
@@ -229,7 +231,7 @@ export async function handleAuthApiRequest(request: Request): Promise<Response> 
       const email = typeof body["email"] === "string" ? body["email"].trim() : "";
       const password = typeof body["password"] === "string" ? body["password"] : "";
 
-      const result = await signUpUser({ name, email, password });
+      const result = await signUpUser({ name, email, password, db });
       const cookieHeader = createSessionCookieHeader(result.session.id, isSecure);
       return jsonResponse(result, 200, cookieHeader);
     }
@@ -242,7 +244,7 @@ export async function handleAuthApiRequest(request: Request): Promise<Response> 
         return jsonResponse({ user: null, session: null }, 401, createClearCookieHeader(isSecure));
       }
 
-      const result = await validateSession(sessionId);
+      const result = await validateSession(sessionId, db);
       if (!result) {
         return jsonResponse({ user: null, session: null }, 401, createClearCookieHeader(isSecure));
       }
@@ -254,7 +256,7 @@ export async function handleAuthApiRequest(request: Request): Promise<Response> 
       const body = await parseJsonBody(request).catch(() => ({}));
       const sessionId = extractSessionToken(request, url, body);
 
-      const success = sessionId ? await logoutUser(sessionId) : false;
+      const success = sessionId ? await logoutUser(sessionId, db) : false;
       const clearCookie = createClearCookieHeader(isSecure);
       return jsonResponse({ success }, 200, clearCookie);
     }
@@ -282,6 +284,7 @@ export async function handleAuthApiRequest(request: Request): Promise<Response> 
         adminSessionId,
         targetUserId,
         newRole: newRoleRaw as AppRole,
+        db,
       });
       return jsonResponse({ user });
     }
@@ -299,6 +302,7 @@ export async function handleAuthApiRequest(request: Request): Promise<Response> 
       const user = await linkWalletToUser({
         sessionId,
         walletAddress,
+        db,
       });
       return jsonResponse({ user });
     }
@@ -308,7 +312,7 @@ export async function handleAuthApiRequest(request: Request): Promise<Response> 
       if (!sessionId) {
         return errorResponse("Authentication required.", 401);
       }
-      const users = await getAllUsers(sessionId);
+      const users = await getAllUsers(sessionId, db);
       return jsonResponse({ users });
     }
 
@@ -317,7 +321,7 @@ export async function handleAuthApiRequest(request: Request): Promise<Response> 
       if (!sessionId) {
         return errorResponse("Authentication required.", 401);
       }
-      const auditLogs = await getAuditLogs(sessionId);
+      const auditLogs = await getAuditLogs(sessionId, db);
       return jsonResponse({ auditLogs });
     }
 

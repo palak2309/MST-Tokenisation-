@@ -135,7 +135,7 @@ function Brand({ inHeader = false }: { inHeader?: boolean }) {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
-  const { statusInfo, isMainnet, setNetwork } = useNetwork();
+  const { statusInfo } = useNetwork();
   const { user, isAuthenticated, logout } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isAuthPage = pathname === "/login" || pathname === "/signup";
@@ -153,17 +153,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             <WalletButton />
           </div>
         </header>
-
-        {isMainnet && (
-          <div
-            role="alert"
-            className="border-b border-amber-500/40 bg-amber-500/10 px-4 py-2 text-xs text-amber-900 dark:text-amber-200 text-center"
-          >
-            <span>
-              <strong>MST Mainnet Active (Chain ID 4646):</strong> Live operations use real MST.
-            </span>
-          </div>
-        )}
 
         <main className="flex-1 flex flex-col items-center justify-center px-4 py-8 sm:py-12">
           {children}
@@ -257,31 +246,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           <WalletButton />
         </div>
       </header>
-
-      {isMainnet && (
-        <div
-          role="alert"
-          className="border-b border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-900 dark:text-amber-200"
-        >
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-              <span>
-                <strong>MST Mainnet Active (Chain ID 4646):</strong> Live operations broadcast
-                permanent on-chain records and consume real MST. Verify all parameters carefully in
-                BridgeKey before signing.
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setNetwork("testnet")}
-              className="shrink-0 font-semibold underline hover:no-underline text-amber-800 dark:text-amber-300 text-xs cursor-pointer"
-            >
-              Switch to Testnet
-            </button>
-          </div>
-        </div>
-      )}
 
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden">

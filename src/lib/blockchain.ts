@@ -1,11 +1,20 @@
 import type { Eip1193Provider } from "ethers";
 import {
   CONTRACT_ABI,
+  DEFAULT_MAINNET_CHAIN_ID,
+  DEFAULT_MAINNET_NETWORK_NAME,
+  DEFAULT_MAINNET_RPC_URL,
+  DEFAULT_TESTNET_CHAIN_ID,
+  DEFAULT_TESTNET_NETWORK_NAME,
+  DEFAULT_TESTNET_RPC_URL,
   getActiveNetworkConfig,
   isNetworkRegistryConfigured,
   isNetworkTokenConfigured,
+  type MstNetwork,
   onActiveNetworkChange,
   PROPERTY_TOKEN_ABI,
+  resolveMainnetConfig,
+  resolveTestnetConfig,
 } from "../contractConfig";
 
 export const chainConfig = {
@@ -47,7 +56,7 @@ type Eip6963ProviderDetail = {
   provider: Eip1193Provider;
 };
 
-type BridgeKeyProvider = Eip1193Provider & {
+export type BridgeKeyProvider = Eip1193Provider & {
   on?: (event: string, listener: (...args: unknown[]) => void) => unknown;
   removeListener?: (event: string, listener: (...args: unknown[]) => void) => unknown;
 };
@@ -414,7 +423,10 @@ export const ROLES = {
 } as const;
 
 export const TESTNET_ADMIN_ACCOUNT = "0xEF9fE181ed6659096895bb54f71487B67E3b262b";
+export const MAINNET_ADMIN_ACCOUNT = "0xEF9fE181ed6659096895bb54f71487B67E3b262b";
+export const ADMIN_ACCOUNT = "0xEF9fE181ed6659096895bb54f71487B67E3b262b";
 export const TESTNET_CHAIN_ID_NUM = 91562037n;
+export const MAINNET_CHAIN_ID_NUM = 4646n;
 
 export type UserRoleStatus = {
   isAdmin: boolean;
@@ -921,25 +933,75 @@ export async function unpauseContractOnChain(
   };
 }
 
+export async function switchWalletNetwork(
+  targetNetwork: MstNetwork,
+  providerOverride?: BridgeKeyProvider,
+): Promise<void> {
+  const provider = providerOverride ?? (await discoverBridgeKeyProvider());
+  const config = targetNetwork === "mainnet" ? resolveMainnetConfig() : resolveTestnetConfig();
+  const targetChainIdStr =
+    config.chainId ||
+    (targetNetwork === "mainnet" ? DEFAULT_MAINNET_CHAIN_ID : DEFAULT_TESTNET_CHAIN_ID);
+  const targetChainIdNum = BigInt(targetChainIdStr);
+  const hexChainId = `0x${targetChainIdNum.toString(16)}`;
+
+  try {
+    await provider.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: hexChainId }],
+    });
+  } catch (switchError: unknown) {
+    const err = switchError as { code?: number; message?: string };
+    // 4902: Unrecognized chain error code according to EIP-3326 standard
+    if (
+      err?.code === 4902 ||
+      (typeof err?.message === "string" &&
+        /4902|unrecognized|not added|unknown chain/i.test(err.message))
+    ) {
+      const rpcUrl =
+        config.rpcUrl ||
+        (targetNetwork === "mainnet" ? DEFAULT_MAINNET_RPC_URL : DEFAULT_TESTNET_RPC_URL);
+      const networkName =
+        config.networkName ||
+        (targetNetwork === "mainnet" ? DEFAULT_MAINNET_NETWORK_NAME : DEFAULT_TESTNET_NETWORK_NAME);
+
+      await provider.request({
+        method: "wallet_addEthereumChain",
+        params: [
+          {
+            chainId: hexChainId,
+            chainName: networkName,
+            nativeCurrency: {
+              name: "MST",
+              symbol: "MST",
+              decimals: 18,
+            },
+            rpcUrls: [rpcUrl],
+            blockExplorerUrls: config.explorerUrl ? [config.explorerUrl] : undefined,
+          },
+        ],
+      });
+    } else {
+      throw switchError;
+    }
+  }
+}
+
 export async function grantRoleOnChain(
   role: string,
   accountAddress: string,
   onPending?: (txHash: string) => void,
 ): Promise<{ txHash: string; blockNumber: number }> {
-  if (chainConfig.network !== "testnet" || getExpectedChainId() !== TESTNET_CHAIN_ID_NUM) {
-    throw new Error("grantRoleOnChain is only allowed on MST Testnet (Chain ID 91562037).");
-  }
-
   if (!isTokenLiveConfigured()) {
     throw new Error(getTokenRegistryConfigurationMessage());
   }
 
-  const eth = await discoverBridgeKeyProvider();
   const address = chainConfig.tokenContractAddress;
   if (!address) {
-    throw new Error("PropertyToken contract address is not configured.");
+    throw new Error(getTokenRegistryConfigurationMessage());
   }
 
+  const eth = await discoverBridgeKeyProvider();
   const { BrowserProvider, Contract } = await import("ethers");
   const provider = new BrowserProvider(eth);
 
@@ -951,11 +1013,6 @@ export async function grantRoleOnChain(
 
   const network = await provider.getNetwork();
   assertCorrectNetwork(network.chainId);
-  if (network.chainId !== TESTNET_CHAIN_ID_NUM) {
-    throw new Error(
-      `Invalid network for role grant: Chain ID ${network.chainId}. Expected 91562037.`,
-    );
-  }
 
   const signer = await provider.getSigner(account);
   const contract = new Contract(address, PROPERTY_TOKEN_ABI, signer);
@@ -975,22 +1032,18 @@ export async function grantRoleOnChain(
 }
 
 export async function hasRoleOnChain(role: string, accountAddress: string): Promise<boolean> {
-  if (
-    chainConfig.network !== "testnet" ||
-    !isTokenLiveConfigured() ||
-    !accountAddress?.trim() ||
-    !role?.trim()
-  ) {
+  if (!isTokenLiveConfigured() || !accountAddress?.trim() || !role?.trim()) {
     return false;
   }
   const address = chainConfig.tokenContractAddress;
   if (!address || !chainConfig.rpcUrl) return false;
 
   try {
+    const expectedChainId = getExpectedChainId();
     const { JsonRpcProvider, Contract } = await import("ethers");
     const provider = new JsonRpcProvider(
       chainConfig.rpcUrl,
-      { chainId: Number(TESTNET_CHAIN_ID_NUM), name: "MST Testnet" },
+      { chainId: Number(expectedChainId), name: chainConfig.networkName || "MST" },
       { staticNetwork: true },
     );
     const contract = new Contract(address, PROPERTY_TOKEN_ABI, provider);

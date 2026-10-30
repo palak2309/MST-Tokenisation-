@@ -44,7 +44,7 @@ export function WalletButton() {
           }
           if (chainConfig.chainId && actualChainId !== chainConfig.chainId) {
             toast.error("Wrong network selected in BridgeKey", {
-              description: `Switch to ${chainConfig.networkName ?? "MST Testnet"} (chain ID ${chainConfig.chainId}) in BridgeKey. The app will not switch networks automatically.`,
+              description: `Switch to ${chainConfig.networkName ?? "MST Testnet"} (chain ID ${chainConfig.chainId}) in BridgeKey or use the network switcher above.`,
             });
           } else {
             toast.success("BridgeKey is on the configured network");

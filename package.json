@@ -16,7 +16,8 @@
     "test:contract": "hardhat test",
     "deploy:testnet": "hardhat run scripts/deploy-testnet-token.ts --network mstTestnet",
     "grant:issuer": "hardhat run scripts/grant-issuer-role.ts --network mstTestnet",
-    "deploy:mainnet": "hardhat run scripts/deploy-mainnet.ts --build-profile production --network mstMainnet"
+    "deploy:mainnet": "hardhat run scripts/deploy-mainnet.ts --build-profile production --network mstMainnet",
+    "setup:mainnet:roles": "hardhat run scripts/setup-mainnet-roles.ts --network mstMainnet"
   },
   "overrides": {
     "rolldown": "1.2.1"
