@@ -133,6 +133,67 @@ describe("PropertyToken", function () {
     });
   });
 
+  describe("demo purchases", function () {
+    it("allows an eligible investor to self-purchase demo units without ISSUER_ROLE", async function () {
+      const { token, alice } = await withProperty(1000n);
+      const expectedDemoValue = 25n * 125000n;
+
+      await expect(token.connect(alice).purchaseDemoUnits(1n, 25n))
+        .to.emit(token, "UnitsIssued")
+        .withArgs(1n, alice.address, 25n, alice.address)
+        .and.to.emit(token, "DemoUnitsPurchased")
+        .withArgs(1n, alice.address, 25n, expectedDemoValue);
+
+      expect(await token.balanceOf(alice.address, 1n)).to.equal(25n);
+      expect(await token["totalSupply(uint256)"](1n)).to.equal(25n);
+      expect(await token.remainingSupply(1n)).to.equal(975n);
+    });
+
+    it("rejects demo purchase if caller is not an eligible investor", async function () {
+      const { token, outsider } = await withProperty();
+      await expect(token.connect(outsider).purchaseDemoUnits(1n, 10n))
+        .to.be.revertedWithCustomError(token, "IneligibleInvestor")
+        .withArgs(outsider.address);
+    });
+
+    it("rejects demo purchase with zero amount", async function () {
+      const { token, alice } = await withProperty();
+      await expect(token.connect(alice).purchaseDemoUnits(1n, 0n)).to.be.revertedWithCustomError(
+        token,
+        "ZeroAmount",
+      );
+    });
+
+    it("rejects demo purchase for an unknown token ID", async function () {
+      const { token, alice } = await withProperty();
+      await expect(token.connect(alice).purchaseDemoUnits(99n, 10n))
+        .to.be.revertedWithCustomError(token, "UnknownToken")
+        .withArgs(99n);
+    });
+
+    it("enforces maximum supply cap on demo purchases", async function () {
+      const { token, alice } = await withProperty(50n);
+      await token.connect(alice).purchaseDemoUnits(1n, 40n);
+
+      await expect(token.connect(alice).purchaseDemoUnits(1n, 11n))
+        .to.be.revertedWithCustomError(token, "SupplyCapExceeded")
+        .withArgs(1n, 11n, 10n);
+
+      // Remaining 10 units can still be purchased
+      await token.connect(alice).purchaseDemoUnits(1n, 10n);
+      expect(await token.remainingSupply(1n)).to.equal(0n);
+    });
+
+    it("rejects demo purchases when contract is paused", async function () {
+      const { token, pauser, alice } = await withProperty();
+      await token.connect(pauser).pause();
+      await expect(token.connect(alice).purchaseDemoUnits(1n, 10n)).to.be.revertedWithCustomError(
+        token,
+        "EnforcedPause",
+      );
+    });
+  });
+
   describe("transfers and compliance", function () {
     it("blocks transfers until compliance enables them for the token", async function () {
       const { token, issuer, compliance, alice, bob } = await withProperty();
@@ -169,6 +230,50 @@ describe("PropertyToken", function () {
       await expect(
         token.connect(outsider).setTransfersEnabled(1n, true),
       ).to.be.revertedWithCustomError(token, "AccessControlUnauthorizedAccount");
+      await expect(
+        token.connect(outsider).setStakingContractAuthorization(alice.address, true),
+      ).to.be.revertedWithCustomError(token, "AccessControlUnauthorizedAccount");
+    });
+
+    it("allows COMPLIANCE_ROLE to authorize staking contract and exempt it from transfersEnabled", async function () {
+      const { token, issuer, compliance, alice, bob } = await withProperty();
+      const [, , , , , , , stakingMock] = await ethers.getSigners();
+
+      await token.connect(issuer).issueUnits(1n, alice.address, 100n);
+
+      // Ordinary investor-to-investor transfer fails because transfersEnabled == false
+      await expect(
+        token.connect(alice).safeTransferFrom(alice.address, bob.address, 1n, 10n, "0x"),
+      ).to.be.revertedWithCustomError(token, "TransfersDisabled");
+
+      // Compliance authorizes stakingMock as eligible investor and staking contract
+      await token.connect(compliance).setInvestorEligibility(stakingMock.address, true);
+      await expect(
+        token.connect(compliance).setStakingContractAuthorization(stakingMock.address, true),
+      )
+        .to.emit(token, "StakingContractAuthorizationUpdated")
+        .withArgs(stakingMock.address, true, compliance.address);
+
+      expect(await token.isAuthorizedStakingContract(stakingMock.address)).to.equal(true);
+
+      // Staking deposit from alice to stakingMock succeeds EVEN THOUGH transfersEnabled is false
+      await expect(
+        token.connect(alice).safeTransferFrom(alice.address, stakingMock.address, 1n, 30n, "0x"),
+      ).to.emit(token, "TransferSingle");
+      expect(await token.balanceOf(stakingMock.address, 1n)).to.equal(30n);
+
+      // Staking withdrawal from stakingMock to alice succeeds EVEN THOUGH transfersEnabled is false
+      await expect(
+        token
+          .connect(stakingMock)
+          .safeTransferFrom(stakingMock.address, alice.address, 1n, 30n, "0x"),
+      ).to.emit(token, "TransferSingle");
+      expect(await token.balanceOf(alice.address, 1n)).to.equal(100n);
+
+      // Ordinary investor-to-investor transfers REMAIN strictly blocked
+      await expect(
+        token.connect(alice).safeTransferFrom(alice.address, bob.address, 1n, 10n, "0x"),
+      ).to.be.revertedWithCustomError(token, "TransfersDisabled");
     });
 
     it("an account cannot grant itself a role", async function () {

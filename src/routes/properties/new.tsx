@@ -526,10 +526,9 @@ function AddPropertyPage() {
   }
 
   async function handleRegisterOnChain() {
-    if (chainConfig.network !== "testnet") {
-      toast.error("MST Testnet Required", {
-        description:
-          "On-chain registration is restricted to MST Testnet (Chain ID 91562037). Mainnet transactions are disabled.",
+    if (!chainConfig.tokenContractAddress) {
+      toast.error("Contract not configured", {
+        description: `${chainConfig.networkName ?? "MST"} PropertyToken contract is not configured. Live on-chain registration is unavailable on this network.`,
       });
       return;
     }
@@ -602,7 +601,7 @@ function AddPropertyPage() {
       addActivity({
         kind: "Property Registered",
         propertyId: propertyId.trim(),
-        detail: `Registered token on MST Testnet for ${propertyId.trim()} (Max Supply: ${finances.maximumTokenSupply} units, Unit Price: ${inr(unitPrice)})`,
+        detail: `Registered token on ${chainConfig.networkName ?? "MST"} for ${propertyId.trim()} (Max Supply: ${finances.maximumTokenSupply} units, Unit Price: ${inr(unitPrice)})`,
         source: "onchain",
         txHash: result.txHash,
         explorerUrl: explorerTxUrl(result.txHash),
@@ -651,7 +650,7 @@ function AddPropertyPage() {
       };
       saveUserProperty(propertyRecord);
 
-      toast.success("Property registered on MST Testnet!", {
+      toast.success(`Property registered on ${chainConfig.networkName ?? "MST"}!`, {
         description: `Tx: ${result.txHash.slice(0, 10)}… (Block #${result.blockNumber})`,
       });
 
@@ -727,7 +726,7 @@ function AddPropertyPage() {
                 disabled={
                   txStage === "confirming" ||
                   txStage === "pending" ||
-                  isMainnet ||
+                  !chainConfig.tokenContractAddress ||
                   docs.length === 0 ||
                   Boolean(onChainTokenInfo?.exists)
                 }
@@ -742,7 +741,9 @@ function AddPropertyPage() {
                 )}
                 {onChainTokenInfo?.exists
                   ? `Registered (Token #${onChainTokenInfo.tokenId.toString()})`
-                  : "Register Property on MST Testnet"}
+                  : !chainConfig.tokenContractAddress
+                    ? `${chainConfig.networkName ?? "MST"} Contract Not Configured`
+                    : `Register Property on ${chainConfig.networkName ?? "MST"}`}
               </Button>
             </div>
           </div>
@@ -983,14 +984,14 @@ function AddPropertyPage() {
             </div>
           </section>
 
-          {/* Section: MST Testnet On-Chain Registration */}
+          {/* Section: On-Chain Registration */}
           <section className="panel space-y-5 p-5 border-2 border-primary/40 bg-card">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
               <div className="flex items-center gap-2.5">
                 <ShieldCheck className="h-5 w-5 text-primary shrink-0" />
                 <div>
                   <h3 className="font-semibold text-foreground">
-                    MST Testnet On-Chain Registration (PropertyToken)
+                    {chainConfig.networkName ?? "MST"} On-Chain Registration (PropertyToken)
                   </h3>
                   <p className="text-xs text-muted-foreground">
                     Direct interaction with the deployed PropertyToken smart contract via BridgeKey
@@ -1003,8 +1004,8 @@ function AddPropertyPage() {
                   <Pill tone="success">
                     Registered On-Chain · Token #{onChainTokenInfo.tokenId.toString()}
                   </Pill>
-                ) : isMainnet ? (
-                  <Pill tone="destructive">Mainnet Active (Disabled)</Pill>
+                ) : !chainConfig.tokenContractAddress ? (
+                  <Pill tone="warning">Contract Not Configured</Pill>
                 ) : (
                   <Pill tone="neutral">Ready to Register</Pill>
                 )}
@@ -1016,7 +1017,7 @@ function AddPropertyPage() {
               <div>
                 <span className="text-muted-foreground">Target Blockchain:</span>
                 <p className="font-medium text-foreground">
-                  MST Testnet (Chain ID {chainConfig.chainId ?? "91562037"})
+                  {chainConfig.networkName ?? "MST"} (Chain ID {chainConfig.chainId ?? "—"})
                 </p>
               </div>
               <div>
@@ -1032,20 +1033,21 @@ function AddPropertyPage() {
                       {chainConfig.tokenContractAddress} <ExternalLink className="h-3 w-3" />
                     </a>
                   ) : (
-                    "0x681Ef61D12372e040EE5f6e058932818aA29407F"
+                    <span className="text-muted-foreground font-sans">Not configured</span>
                   )}
                 </p>
               </div>
             </div>
 
-            {/* Mainnet Warning if active */}
-            {isMainnet && (
-              <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 shrink-0" />
+            {/* Unconfigured contract notice if token contract is absent on active network */}
+            {!chainConfig.tokenContractAddress && (
+              <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
                 <span>
-                  <strong>Mainnet is selected:</strong> Live on-chain registration is only supported
-                  on MST Testnet (Chain ID 91562037). Please switch your network to MST Testnet in
-                  the top network switcher.
+                  <strong>Contract not configured:</strong> The PropertyToken contract for{" "}
+                  {chainConfig.networkName ?? "this network"} is not configured. Live on-chain
+                  registration is unavailable until deployed and configured in environment
+                  variables.
                 </span>
               </div>
             )}
@@ -1126,8 +1128,8 @@ function AddPropertyPage() {
                   <div>
                     <p className="font-medium text-sm">BridgeKey Wallet Not Connected</p>
                     <p className="text-xs text-muted-foreground">
-                      Connect your BridgeKey wallet on MST Testnet to sign the registration
-                      transaction.
+                      Connect your BridgeKey wallet on {chainConfig.networkName ?? "MST"} to sign
+                      the registration transaction.
                     </p>
                   </div>
                   <Button
@@ -1149,13 +1151,17 @@ function AddPropertyPage() {
                     <div className="flex items-center gap-2">
                       <Pill
                         tone={
-                          walletChainId === "91562037" || walletChainId === "0x5752035"
+                          walletChainId === chainConfig.chainId ||
+                          (chainConfig.chainId &&
+                            walletChainId === `0x${BigInt(chainConfig.chainId).toString(16)}`)
                             ? "success"
                             : "destructive"
                         }
                       >
-                        {walletChainId === "91562037" || walletChainId === "0x5752035"
-                          ? "MST Testnet (91562037)"
+                        {walletChainId === chainConfig.chainId ||
+                        (chainConfig.chainId &&
+                          walletChainId === `0x${BigInt(chainConfig.chainId).toString(16)}`)
+                          ? `${chainConfig.networkName ?? "MST"} (${chainConfig.chainId})`
                           : `Wrong Chain: ${walletChainId}`}
                       </Pill>
                     </div>
@@ -1212,7 +1218,9 @@ function AddPropertyPage() {
                 <div className="flex items-center gap-3">
                   <Loader2 className="h-5 w-5 animate-spin text-amber-500 shrink-0" />
                   <div>
-                    <p className="font-semibold text-sm">Broadcasting to MST Testnet</p>
+                    <p className="font-semibold text-sm">
+                      Broadcasting to {chainConfig.networkName ?? "MST"}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       Transaction submitted. Waiting for block confirmation...
                     </p>
@@ -1240,7 +1248,7 @@ function AddPropertyPage() {
                   <CheckCircle2 className="h-5 w-5 text-success shrink-0" />
                   <div>
                     <p className="font-semibold text-sm text-success">
-                      Confirmed On-Chain on MST Testnet!
+                      Confirmed On-Chain on {chainConfig.networkName ?? "MST"}!
                     </p>
                     <p className="text-xs text-muted-foreground">
                       Verified live on the deployed PropertyToken contract.
@@ -1326,7 +1334,7 @@ function AddPropertyPage() {
                   disabled={
                     txStage === "confirming" ||
                     txStage === "pending" ||
-                    isMainnet ||
+                    !chainConfig.tokenContractAddress ||
                     docs.length === 0 ||
                     Boolean(onChainTokenInfo?.exists)
                   }
@@ -1341,7 +1349,9 @@ function AddPropertyPage() {
                   )}
                   {onChainTokenInfo?.exists
                     ? `Registered (Token #${onChainTokenInfo.tokenId.toString()})`
-                    : "Register Property on MST Testnet"}
+                    : !chainConfig.tokenContractAddress
+                      ? `${chainConfig.networkName ?? "MST"} Contract Not Configured`
+                      : `Register Property on ${chainConfig.networkName ?? "MST"}`}
                 </Button>
               </div>
             </div>
@@ -1371,7 +1381,7 @@ function AddPropertyPage() {
                 disabled={
                   txStage === "confirming" ||
                   txStage === "pending" ||
-                  isMainnet ||
+                  !chainConfig.tokenContractAddress ||
                   docs.length === 0 ||
                   Boolean(onChainTokenInfo?.exists)
                 }
@@ -1386,7 +1396,9 @@ function AddPropertyPage() {
                 )}
                 {onChainTokenInfo?.exists
                   ? `Registered (Token #${onChainTokenInfo.tokenId.toString()})`
-                  : "Register Property on MST Testnet"}
+                  : !chainConfig.tokenContractAddress
+                    ? `${chainConfig.networkName ?? "MST"} Contract Not Configured`
+                    : `Register Property on ${chainConfig.networkName ?? "MST"}`}
               </Button>
             </div>
           </div>

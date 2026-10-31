@@ -37,3 +37,4 @@ cache/
 *.njsproj
 *.sln
 *.sw?
+.cache/

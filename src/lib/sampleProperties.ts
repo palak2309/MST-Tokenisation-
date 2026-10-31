@@ -42,6 +42,10 @@ export interface Property {
   maxSupply?: number | undefined;
   createdAt?: string | undefined;
   updatedAt?: string | undefined;
+  network?: "testnet" | "mainnet" | "all" | undefined;
+  source?: "demo" | "live" | undefined;
+  tokenId?: number | undefined;
+  contractAddress?: string | undefined;
 }
 
 const H = (seed: string) => seed.padEnd(64, "0").slice(0, 64);
@@ -122,6 +126,45 @@ export const PROPERTIES: Property[] = [
         reference: "PTX-DEMO-2024-88",
         date: "2024-04-18",
         status: "Reviewed",
+      },
+    ],
+  },
+  {
+    id: "PRP-TEST-SIM-001",
+    name: "Simulated Demo Residency (Testnet Prototype)",
+    location: "Baner, Pune, Maharashtra (MST Testnet Prototype)",
+    kind: "Residential apartment (Simulated)",
+    propertyType: "residential",
+    description:
+      "Simulated prototype property for developer verification on MST Testnet (Chain ID 91562037). Placeholder metadata and document hash do not represent legal property title, ownership rights, or verified deed registration.",
+    image: prop1,
+    indicativeValue: 100_000,
+    poolSize: 100_000,
+    unitPrice: 1_000,
+    monthlyRent: 0,
+    vacancyPct: 0,
+    monthlyOperating: 0,
+    monthlyMaintenance: 0,
+    capRatePct: 0,
+    maxSupply: 100,
+    network: "testnet",
+    source: "demo",
+    tokenId: 1,
+    contractAddress: "0xdBD6720855bE77A514E12Fca6D513Dda2A61466E",
+    docs: [
+      {
+        id: "DOC-SIM-001",
+        category: "Sale deed / title",
+        type: "Simulated Testnet Deed",
+        reference: "SIM-TEST-2026-001",
+        date: "2026-10-30",
+        status: "Reviewed",
+        registeredHash: "0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        fileName: "Simulated-Title-Deed-PRP-TEST-SIM-001.pdf",
+        fileSize: 1024,
+        fileType: "application/pdf",
+        sha256: "0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        fingerprintStatus: "Verified against a trusted reference",
       },
     ],
   },
@@ -287,3 +330,52 @@ export const inr = (n: number) =>
   }).format(n);
 
 export const DEFAULT_PROPERTY: Property = PROPERTIES[0]!;
+
+export const MAINNET_DEMO_PROPERTY: Property = {
+  id: "MST-DEMO-PUNE-002",
+  name: "Commercial Tech Park, Tower A",
+  location: "Baner, Pune, Maharashtra",
+  kind: "Commercial office",
+  propertyType: "commercial",
+  description:
+    "Commercial tech park fractional unit in Baner, Pune for on-chain MST Mainnet tokenisation.",
+  image: prop2,
+  indicativeValue: 1_500_000,
+  poolSize: 1_500_000,
+  unitPrice: 1_000,
+  monthlyRent: 65_000,
+  vacancyPct: 5,
+  monthlyOperating: 5_000,
+  monthlyMaintenance: 4_000,
+  capRatePct: 6.0,
+  maxSupply: 1_500,
+  network: "mainnet",
+  source: "demo",
+  tokenId:
+    typeof process !== "undefined" && process.env?.["VITE_MST_MAINNET_TOKEN_ID"]
+      ? Number(process.env["VITE_MST_MAINNET_TOKEN_ID"])
+      : typeof import.meta !== "undefined" && import.meta.env?.["VITE_MST_MAINNET_TOKEN_ID"]
+        ? Number(import.meta.env["VITE_MST_MAINNET_TOKEN_ID"])
+        : 1,
+  contractAddress:
+    typeof process !== "undefined" && process.env?.["VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS"]
+      ? process.env["VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS"]
+      : typeof import.meta !== "undefined" &&
+          import.meta.env?.["VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS"]
+        ? import.meta.env["VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS"]
+        : "0x39985d784615f307D34B8143768a54bEEaB94537",
+  docs: [
+    {
+      id: "DOC-PUN-002-1",
+      category: "Sale deed / title",
+      type: "Registered sale deed",
+      reference: "SD-DEMO-PUN-002",
+      fileName: "Registered-Sale-Deed-PUNE-002.pdf",
+      fileSize: 482000,
+      fileType: "application/pdf",
+      sha256: "9f2a6c1e7b3d4e58a0c2b9f1d6e8a7c3b5f0e9d2a4c6b8e1f3a5c7d9e0b2a4c6",
+      status: "Reviewed",
+      date: "2026-10-30",
+    },
+  ],
+};

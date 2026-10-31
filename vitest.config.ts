@@ -9,6 +9,10 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    env: {
+      VITE_MST_MAINNET_CONTRACT_ADDRESS: "",
+      VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS: "",
+    },
   },
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },

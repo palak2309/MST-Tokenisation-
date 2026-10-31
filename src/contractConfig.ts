@@ -11,6 +11,8 @@ export type MstNetworkConfig = {
   rpcUrl: string | undefined;
   contractAddress: string | undefined;
   tokenContractAddress: string | undefined;
+  stakingContractAddress?: string | undefined;
+  tokenId?: string | undefined;
   explorerUrl: string | undefined;
 };
 
@@ -39,6 +41,16 @@ export function isNetworkTokenConfigured(
     config.network !== "unsupported" &&
     config.chainId?.trim() &&
     config.tokenContractAddress?.trim(),
+  );
+}
+
+export function isNetworkStakingConfigured(
+  config: Pick<MstNetworkConfig, "network" | "chainId" | "stakingContractAddress">,
+): boolean {
+  return Boolean(
+    config.network !== "unsupported" &&
+    config.chainId?.trim() &&
+    config.stakingContractAddress?.trim(),
   );
 }
 
@@ -105,7 +117,17 @@ export function resolveTestnetConfig(environment: Environment = env): MstNetwork
       environment["VITE_MST_TOKEN_CONTRACT_ADDRESS"]
     )?.trim() || undefined;
 
-  return {
+  const stakingContractAddress =
+    (
+      environment["VITE_MST_TESTNET_STAKING_CONTRACT_ADDRESS"] ??
+      environment["VITE_MST_STAKING_CONTRACT_ADDRESS"]
+    )?.trim() || undefined;
+
+  const tokenId =
+    (environment["VITE_MST_TESTNET_TOKEN_ID"] ?? environment["VITE_MST_TOKEN_ID"])?.trim() ||
+    undefined;
+
+  const config: MstNetworkConfig = {
     network: "testnet",
     networkName:
       environment["VITE_MST_TESTNET_NETWORK_NAME"]?.trim() ||
@@ -126,22 +148,46 @@ export function resolveTestnetConfig(environment: Environment = env): MstNetwork
       environment["VITE_MST_EXPLORER_URL"]?.trim() ||
       DEFAULT_TESTNET_EXPLORER_URL,
   };
+
+  if (stakingContractAddress !== undefined) {
+    config.stakingContractAddress = stakingContractAddress;
+  }
+  if (tokenId !== undefined) {
+    config.tokenId = tokenId;
+  }
+
+  return config;
 }
 
 export function resolveMainnetConfig(environment: Environment = env): MstNetworkConfig {
-  return {
+  const contractAddress = environment["VITE_MST_MAINNET_CONTRACT_ADDRESS"]?.trim() || undefined;
+  const tokenContractAddress =
+    environment["VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS"]?.trim() || undefined;
+  const stakingContractAddress =
+    environment["VITE_MST_MAINNET_STAKING_CONTRACT_ADDRESS"]?.trim() || undefined;
+  const tokenId = environment["VITE_MST_MAINNET_TOKEN_ID"]?.trim() || undefined;
+
+  const config: MstNetworkConfig = {
     network: "mainnet",
     networkName:
       environment["VITE_MST_MAINNET_NETWORK_NAME"]?.trim() || DEFAULT_MAINNET_NETWORK_NAME,
     chainId: environment["VITE_MST_MAINNET_CHAIN_ID"]?.trim() || DEFAULT_MAINNET_CHAIN_ID,
     rpcUrl: environment["VITE_MST_MAINNET_RPC_URL"]?.trim() || DEFAULT_MAINNET_RPC_URL,
     // Strict address isolation: Mainnet NEVER falls back to Testnet addresses
-    contractAddress: environment["VITE_MST_MAINNET_CONTRACT_ADDRESS"]?.trim() || undefined,
-    tokenContractAddress:
-      environment["VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS"]?.trim() || undefined,
+    contractAddress,
+    tokenContractAddress,
     explorerUrl:
       environment["VITE_MST_MAINNET_EXPLORER_URL"]?.trim() || DEFAULT_MAINNET_EXPLORER_URL,
   };
+
+  if (stakingContractAddress !== undefined) {
+    config.stakingContractAddress = stakingContractAddress;
+  }
+  if (tokenId !== undefined) {
+    config.tokenId = tokenId;
+  }
+
+  return config;
 }
 
 export function resolveMstNetworkConfig(environment: Environment = env): MstNetworkConfig {
@@ -162,6 +208,7 @@ export function resolveMstNetworkConfig(environment: Environment = env): MstNetw
     rpcUrl: undefined,
     contractAddress: undefined,
     tokenContractAddress: undefined,
+    stakingContractAddress: undefined,
     explorerUrl: undefined,
   };
 }
@@ -262,6 +309,9 @@ export const NETWORK_CONFIG: MstNetworkConfig = {
   get tokenContractAddress() {
     return getActiveNetworkConfig().tokenContractAddress;
   },
+  get stakingContractAddress() {
+    return getActiveNetworkConfig().stakingContractAddress;
+  },
   get explorerUrl() {
     return getActiveNetworkConfig().explorerUrl;
   },
@@ -273,6 +323,7 @@ export const CHAIN_ID = NETWORK_CONFIG.chainId;
 export const RPC_URL = NETWORK_CONFIG.rpcUrl;
 export const CONTRACT_ADDRESS = NETWORK_CONFIG.contractAddress;
 export const TOKEN_CONTRACT_ADDRESS = NETWORK_CONFIG.tokenContractAddress;
+export const STAKING_CONTRACT_ADDRESS = NETWORK_CONFIG.stakingContractAddress;
 export const EXPLORER_URL = NETWORK_CONFIG.explorerUrl;
 
 export const CONTRACT_ABI = [
@@ -284,8 +335,11 @@ export const CONTRACT_ABI = [
 export const PROPERTY_TOKEN_ABI = [
   "function registerProperty(bytes32 propertyRef, bytes32 documentHash, uint256 maxSupply, uint256 unitPriceReference, string metadataURI) returns (uint256 tokenId)",
   "function issueUnits(uint256 tokenId, address to, uint256 amount)",
+  "function purchaseDemoUnits(uint256 tokenId, uint256 amount)",
   "function setInvestorEligibility(address investor, bool eligible)",
   "function setTransfersEnabled(uint256 tokenId, bool enabled)",
+  "function setStakingContractAuthorization(address stakingContract, bool authorized)",
+  "function isAuthorizedStakingContract(address account) view returns (bool)",
   "function pause()",
   "function unpause()",
   "function paused() view returns (bool)",
@@ -293,6 +347,8 @@ export const PROPERTY_TOKEN_ABI = [
   "function remainingSupply(uint256 tokenId) view returns (uint256)",
   "function totalSupply(uint256 tokenId) view returns (uint256)",
   "function balanceOf(address account, uint256 id) view returns (uint256)",
+  "function setApprovalForAll(address operator, bool approved)",
+  "function isApprovedForAll(address account, address operator) view returns (bool)",
   "function tokenIdByPropertyRef(bytes32 propertyRef) view returns (uint256)",
   "function isEligibleInvestor(address account) view returns (bool)",
   "function hasRole(bytes32 role, address account) view returns (bool)",
@@ -304,6 +360,30 @@ export const PROPERTY_TOKEN_ABI = [
   "function DEFAULT_ADMIN_ROLE() view returns (bytes32)",
   "event PropertyRegistered(uint256 indexed tokenId, bytes32 indexed propertyRef, bytes32 documentHash, uint256 maxSupply, uint256 unitPriceReference, string metadataURI)",
   "event UnitsIssued(uint256 indexed tokenId, address indexed to, uint256 amount, address indexed issuer)",
+  "event DemoUnitsPurchased(uint256 indexed tokenId, address indexed investor, uint256 amount, uint256 totalDemoValue)",
   "event InvestorEligibilityUpdated(address indexed investor, bool eligible, address indexed by)",
   "event TransfersEnabledUpdated(uint256 indexed tokenId, bool enabled, address indexed by)",
+  "event StakingContractAuthorizationUpdated(address indexed stakingContract, bool authorized, address indexed by)",
+] as const satisfies InterfaceAbi;
+
+export const PROPERTY_TOKEN_STAKING_ABI = [
+  "function stake(uint256 tokenId, uint256 amount, uint64 lockDuration)",
+  "function unstake(uint256 tokenId, uint256 amount)",
+  "function claimRewards(uint256 tokenId) returns (uint256 rewardAmount)",
+  "function emergencyWithdraw(uint256 tokenId)",
+  "function fundRewards(uint256 tokenId) payable",
+  "function configurePool(uint256 tokenId, uint64 minLockDuration, uint64 maxLockDuration, bool enabled)",
+  "function pause()",
+  "function unpause()",
+  "function paused() view returns (bool)",
+  "function getStakeInfo(uint256 tokenId, address investor) view returns (uint256 amount, uint64 lockStartTime, uint64 lockEndTime, uint256 pendingRewards, bool isLocked)",
+  "function getPendingRewards(uint256 tokenId, address investor) view returns (uint256)",
+  "function getPoolInfo(uint256 tokenId) view returns (uint256 totalStaked, uint256 totalRewardsFunded, uint256 totalRewardsClaimed, uint64 minLockDuration, uint64 maxLockDuration, bool isEnabled, uint256 currentRewardBalance)",
+  "function propertyToken() view returns (address)",
+  "event Staked(uint256 indexed tokenId, address indexed investor, uint256 amount, uint64 lockEndTime)",
+  "event Unstaked(uint256 indexed tokenId, address indexed investor, uint256 amount)",
+  "event RewardsFunded(uint256 indexed tokenId, address indexed funder, uint256 amount, uint256 newAccumulatedPerToken)",
+  "event RewardsClaimed(uint256 indexed tokenId, address indexed investor, uint256 amount)",
+  "event EmergencyWithdrawn(uint256 indexed tokenId, address indexed investor, uint256 amount)",
+  "event PoolConfigured(uint256 indexed tokenId, uint64 minLockDuration, uint64 maxLockDuration, bool isEnabled)",
 ] as const satisfies InterfaceAbi;

@@ -3,6 +3,14 @@ import hardhatEthersChaiMatchers from "@nomicfoundation/hardhat-ethers-chai-matc
 import hardhatMocha from "@nomicfoundation/hardhat-mocha";
 import { configVariable, defineConfig } from "hardhat/config";
 
+if (typeof process.loadEnvFile === "function") {
+  try {
+    process.loadEnvFile(".env");
+  } catch {
+    // Ignored if .env file is missing
+  }
+}
+
 export default defineConfig({
   plugins: [hardhatEthers, hardhatEthersChaiMatchers, hardhatMocha],
   solidity: "0.8.20",
@@ -26,7 +34,9 @@ export default defineConfig({
       type: "http",
       chainType: "l1",
       chainId: 4646,
-      url: configVariable("MST_MAINNET_RPC_URL"),
+      url: configVariable("MST_MAINNET_RPC_URL", {
+        default: "https://mariorpc.mstblockchain.com/",
+      }),
       accounts: [configVariable("MST_MAINNET_PRIVATE_KEY")],
     },
   },

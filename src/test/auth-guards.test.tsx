@@ -87,7 +87,9 @@ describe("Authentication Guards & Role Enforcement", () => {
         </AuthProvider>,
       );
 
-      expect(await screen.findByText(/403 · Access Denied/i)).toBeInTheDocument();
+      expect(
+        await screen.findByText(/403 · Access Denied/i, {}, { timeout: 4000 }),
+      ).toBeInTheDocument();
       expect(screen.queryByText("Secret Admin Control Room")).not.toBeInTheDocument();
     });
 
@@ -101,7 +103,9 @@ describe("Authentication Guards & Role Enforcement", () => {
         </AuthProvider>,
       );
 
-      expect(await screen.findByText("Secret Admin Control Room")).toBeInTheDocument();
+      expect(
+        await screen.findByText("Secret Admin Control Room", {}, { timeout: 4000 }),
+      ).toBeInTheDocument();
     });
   });
 

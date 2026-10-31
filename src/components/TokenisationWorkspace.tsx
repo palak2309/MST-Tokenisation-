@@ -417,10 +417,13 @@ export function TokenisationWorkspace() {
           </div>
           <p>{getTokenRegistryConfigurationMessage()}</p>
           <div className="flex flex-wrap gap-4 pt-1 font-mono text-[11px] text-muted-foreground">
-            <span>Target Network: {chainConfig.networkName ?? "MST Testnet"}</span>
-            <span>Chain ID: {chainConfig.chainId ?? "91562037"}</span>
+            <span>Target Network: {chainConfig.networkName ?? "MST"}</span>
+            <span>Chain ID: {chainConfig.chainId ?? "—"}</span>
             <span>
-              Document Registry: {chainConfig.contractAddress?.slice(0, 10)}… (Configured)
+              Document Registry:{" "}
+              {chainConfig.contractAddress
+                ? `${chainConfig.contractAddress.slice(0, 10)}… (Configured)`
+                : "Not configured"}
             </span>
             <span>PropertyToken Address: Unset</span>
           </div>
@@ -455,7 +458,7 @@ export function TokenisationWorkspace() {
         <div className="rounded-lg border border-primary/50 bg-primary/10 p-3 text-xs text-primary flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Transaction pending on MST Testnet…</span>
+            <span>Transaction pending on {chainConfig.networkName ?? "MST"}…</span>
           </div>
           {explorerTxUrl(pendingTxHash) && (
             <a
@@ -505,7 +508,8 @@ export function TokenisationWorkspace() {
               On-Chain Cryptographic Access (Tier 2)
             </span>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Smart contract permissions read live from PropertyToken on MST Testnet.
+              Smart contract permissions read live from PropertyToken on{" "}
+              {chainConfig.networkName ?? "MST"}.
             </p>
           </div>
           {!walletAddress ? (

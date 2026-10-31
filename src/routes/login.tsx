@@ -7,7 +7,6 @@ import {
   Loader2,
   Lock,
   Mail,
-  Shield,
   Sparkles,
 } from "lucide-react";
 import { useState } from "react";
@@ -85,6 +84,10 @@ function LoginPage() {
   const router = useRouter();
   const search = Route.useSearch();
   const { login, user, isAuthenticated, logout } = useAuth();
+
+  const isDemoAccountsVisible =
+    import.meta.env["VITE_ENABLE_DEMO_ACCOUNTS"] === "true" ||
+    (!import.meta.env.PROD && import.meta.env["VITE_ENABLE_DEMO_ACCOUNTS"] !== "false");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -250,7 +253,7 @@ function LoginPage() {
         </form>
 
         {/* Buildathon Fast Preset Selector (Gated in Production) */}
-        {(!import.meta.env.PROD || import.meta.env["VITE_ENABLE_DEMO_ACCOUNTS"] === "true") && (
+        {isDemoAccountsVisible && (
           <div className="pt-2 border-t space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="font-semibold text-foreground flex items-center gap-1.5 text-[11px]">
@@ -276,16 +279,6 @@ function LoginPage() {
             </div>
           </div>
         )}
-
-        {/* Subtle BridgeKey Security Note */}
-        <div className="rounded-lg border border-border/60 bg-muted/30 p-2.5 text-[11px] text-muted-foreground flex items-start gap-2">
-          <Shield className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
-          <div className="space-y-0.5">
-            <span className="font-semibold text-foreground">BridgeKey Security Note:</span>{" "}
-            Credentials authenticate platform roles. Connected BridgeKey wallet signs on-chain
-            transactions on MST Testnet (Chain ID 91562037).
-          </div>
-        </div>
 
         <div className="pt-2 text-center text-xs text-muted-foreground">
           Don't have an account?{" "}

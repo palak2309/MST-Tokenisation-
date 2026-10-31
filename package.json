@@ -15,8 +15,26 @@
     "compile:contract": "hardhat compile",
     "test:contract": "hardhat test",
     "deploy:testnet": "hardhat run scripts/deploy-testnet-token.ts --network mstTestnet",
+    "setup:testnet:roles": "hardhat run scripts/setup-testnet-roles.ts --network mstTestnet",
+    "onboard:testnet:property": "hardhat run scripts/onboard-testnet-property.ts --network mstTestnet",
+    "deploy:testnet:staking": "hardhat run scripts/deploy-testnet-staking.ts --network mstTestnet",
+    "authorize:testnet:staking": "hardhat run scripts/authorize-testnet-staking.ts --network mstTestnet",
+    "approve:testnet:staking": "hardhat run scripts/approve-testnet-staking.ts --network mstTestnet",
+    "stake:testnet": "hardhat run scripts/stake-testnet-property.ts --network mstTestnet",
+    "unstake:testnet": "hardhat run scripts/unstake-testnet-property.ts --network mstTestnet",
+    "verify:testnet:staking": "hardhat run scripts/verify-testnet-staking.ts --network mstTestnet",
     "grant:issuer": "hardhat run scripts/grant-issuer-role.ts --network mstTestnet",
-    "deploy:mainnet": "hardhat run scripts/deploy-mainnet.ts --build-profile production --network mstMainnet"
+    "deploy:mainnet": "hardhat run scripts/deploy-mainnet.ts --build-profile production --network mstMainnet",
+    "fund:mainnet:investor": "hardhat run scripts/fund-mainnet-investor.ts --network mstMainnet",
+    "deploy:mainnet:token": "hardhat run scripts/deploy-mainnet-token.ts --network mstMainnet",
+    "setup:mainnet:roles": "hardhat run scripts/setup-mainnet-roles.ts --network mstMainnet",
+    "onboard:mainnet:property": "hardhat run scripts/onboard-mainnet-property.ts --network mstMainnet",
+    "deploy:mainnet:staking": "hardhat run scripts/deploy-mainnet-staking.ts --network mstMainnet",
+    "authorize:mainnet:staking": "hardhat run scripts/authorize-mainnet-staking.ts --network mstMainnet",
+    "approve:mainnet:staking": "hardhat run scripts/approve-mainnet-staking.ts --network mstMainnet",
+    "stake:mainnet": "hardhat run scripts/stake-mainnet-property.ts --network mstMainnet",
+    "unstake:mainnet": "hardhat run scripts/unstake-mainnet-property.ts --network mstMainnet",
+    "verify:mainnet:staking": "hardhat run scripts/verify-mainnet-staking.ts --network mstMainnet"
   },
   "overrides": {
     "rolldown": "1.2.1"

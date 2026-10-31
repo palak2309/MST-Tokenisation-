@@ -4,7 +4,7 @@ describe("Module initialization order and circular dependency prevention", () =>
   it("imports sampleProperties cleanly without dependencies", async () => {
     const sampleMod = await import("@/lib/sampleProperties");
     expect(sampleMod.PROPERTIES).toBeDefined();
-    expect(sampleMod.PROPERTIES.length).toBe(3);
+    expect(sampleMod.PROPERTIES.length).toBeGreaterThanOrEqual(3);
     expect(sampleMod.DEFAULT_PROPERTY.id).toBe("PRP-PUN-0142");
   });
 
@@ -19,7 +19,7 @@ describe("Module initialization order and circular dependency prevention", () =>
   it("imports data.ts directly without TDZ or circular dependency error", async () => {
     const dataMod = await import("@/lib/data");
     expect(dataMod.PROPERTIES).toBeDefined();
-    expect(dataMod.PROPERTIES.length).toBe(3);
+    expect(dataMod.PROPERTIES.length).toBeGreaterThanOrEqual(3);
     expect(dataMod.getProperty("PRP-PUN-0142")).toBeDefined();
     expect(dataMod.getProperty("PRP-PUN-0142")?.name).toContain("Sample Residency");
   });
