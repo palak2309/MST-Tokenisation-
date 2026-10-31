@@ -34,14 +34,20 @@ async function preflightTx11() {
   if (!block) throw new Error("Could not fetch latest block");
 
   console.log(`Current Block Number:       ${block.number}`);
-  console.log(`Current Block Timestamp:    ${block.timestamp} (${new Date(Number(block.timestamp) * 1000).toISOString()})`);
+  console.log(
+    `Current Block Timestamp:    ${block.timestamp} (${new Date(Number(block.timestamp) * 1000).toISOString()})`,
+  );
   console.log(`Account 3 Nonce:            latest=${latestNonce}, pending=${pendingNonce}`);
   console.log(`Account 3 Gas Balance:      ${formatEther(acc3Balance)} MST`);
   console.log(`Account 3 Staked Amount:    ${stakeRecord[0].toString()} Units (Required: >= 10)`);
-  console.log(`Account 3 Lock End Time:    ${stakeRecord[1].toString()} (${new Date(Number(stakeRecord[1]) * 1000).toISOString()})`);
+  console.log(
+    `Account 3 Lock End Time:    ${stakeRecord[1].toString()} (${new Date(Number(stakeRecord[1]) * 1000).toISOString()})`,
+  );
 
   const isLockExpired = BigInt(block.timestamp) >= stakeRecord[1];
-  console.log(`Is Lock Expired:            ${isLockExpired ? "YES (READY TO UNSTAKE)" : "NO (LOCK ACTIVE)"}`);
+  console.log(
+    `Is Lock Expired:            ${isLockExpired ? "YES (READY TO UNSTAKE)" : "NO (LOCK ACTIVE)"}`,
+  );
 
   // Test unstake estimation or emergencyWithdraw estimation
   const unstakeData = stakingContract.interface.encodeFunctionData("unstake", [
@@ -57,8 +63,9 @@ async function preflightTx11() {
       data: unstakeData,
     });
     console.log(`Gas Estimation (unstake):   ${gasEstimate.toString()} units`);
-  } catch (err: any) {
-    console.warn(`[NOTICE] standard unstake estimation reverted: ${err.message}`);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`[NOTICE] standard unstake estimation reverted: ${message}`);
     console.log(`Checking emergencyWithdraw estimation...`);
     const emData = stakingContract.interface.encodeFunctionData("emergencyWithdraw", [TOKEN_ID]);
     gasEstimate = await ethers.provider.estimateGas({

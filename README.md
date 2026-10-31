@@ -169,6 +169,10 @@ Designed for regulatory compliance and fractional investor access, TokenEstate t
     - Tx Hash: [`0x3fa5753947c1f942d5c11f071daca1a1d9817b6a3a7fd62b0723da9561e1325f`](https://mstscan.com/tx/0x3fa5753947c1f942d5c11f071daca1a1d9817b6a3a7fd62b0723da9561e1325f)
     - Block: `#21800646` · Gas: `179,751` · Fee: `0.000179751 MST`
     - Details: Account 3 staked 10 units with 0-day flexible lock. `stakes(1, Account 3) == 10 Units`.
+12. **Transaction 11 — Investor Account 3 Staking Withdrawal (10 Units):**
+    - Tx Hash: [`0x6bb185fd35801fb309b2f42d46b0c1ab5d76e2cd82580ba5a949b952044abe67`](https://mstscan.com/tx/0x6bb185fd35801fb309b2f42d46b0c1ab5d76e2cd82580ba5a949b952044abe67)
+    - Block: `#21801136` · Gas: `108,680` · Fee: `0.00010868 MST`
+    - Details: Account 3 unstaked 10 units. Principal returned to wallet (`balanceOf == 10 Units`). Complete round-trip verified.
 
 ### MST Testnet Verified Receipts
 1. **Token Minting (10 Units):**
