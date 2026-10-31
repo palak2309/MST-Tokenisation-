@@ -10,9 +10,11 @@ import {
   getActiveNetworkConfig,
   isNetworkRegistryConfigured,
   isNetworkTokenConfigured,
+  isNetworkStakingConfigured,
   type MstNetwork,
   onActiveNetworkChange,
   PROPERTY_TOKEN_ABI,
+  PROPERTY_TOKEN_STAKING_ABI,
   resolveMainnetConfig,
   resolveTestnetConfig,
 } from "../contractConfig";
@@ -32,6 +34,12 @@ export const chainConfig = {
   },
   get tokenContractAddress() {
     return getActiveNetworkConfig().tokenContractAddress;
+  },
+  get stakingContractAddress() {
+    return getActiveNetworkConfig().stakingContractAddress;
+  },
+  get tokenId() {
+    return getActiveNetworkConfig().tokenId;
   },
   get explorerUrl() {
     return getActiveNetworkConfig().explorerUrl;
@@ -77,6 +85,29 @@ export const isTokenLiveConfigured = () =>
     chainId: chainConfig.chainId,
     tokenContractAddress: chainConfig.tokenContractAddress,
   });
+
+export const isStakingLiveConfigured = () =>
+  isNetworkStakingConfigured({
+    network: chainConfig.network,
+    chainId: chainConfig.chainId,
+    stakingContractAddress: chainConfig.stakingContractAddress,
+  });
+
+export function getStakingConfigurationMessage(): string {
+  if (chainConfig.network === "mainnet" && !chainConfig.stakingContractAddress?.trim()) {
+    return "Mainnet PropertyTokenStaking contract not deployed/configured. Live staking is disabled until VITE_MST_MAINNET_STAKING_CONTRACT_ADDRESS is set.";
+  }
+
+  if (chainConfig.network === "testnet" && !chainConfig.stakingContractAddress?.trim()) {
+    return "MST Testnet PropertyTokenStaking contract address is not configured. Live staking is disabled until VITE_MST_TESTNET_STAKING_CONTRACT_ADDRESS is set.";
+  }
+
+  if (chainConfig.network === "unsupported") {
+    return "Unsupported MST network selection. Set VITE_MST_NETWORK to testnet or mainnet.";
+  }
+
+  return `The ${chainConfig.networkName ?? "MST"} staking contract is not configured. Set its address in the matching environment variable.`;
+}
 
 export const isMainnetRegistryUnavailable = () =>
   chainConfig.network === "mainnet" && !isLiveConfigured();
@@ -449,6 +480,24 @@ export type OnChainPropertyTokenInfo = {
   exists: boolean;
 };
 
+export type OnChainStakeInfo = {
+  amount: bigint;
+  lockStartTime: bigint;
+  lockEndTime: bigint;
+  pendingRewards: bigint;
+  isLocked: boolean;
+};
+
+export type OnChainStakingPoolInfo = {
+  totalStaked: bigint;
+  totalRewardsFunded: bigint;
+  totalRewardsClaimed: bigint;
+  minLockDuration: bigint;
+  maxLockDuration: bigint;
+  isEnabled: boolean;
+  currentRewardBalance: bigint;
+};
+
 export function parseContractError(error: unknown): string {
   if (typeof error === "object" && error !== null) {
     const err = error as Record<string, unknown>;
@@ -477,7 +526,31 @@ export function parseContractError(error: unknown): string {
       return "Invalid recipient address (cannot be zero address or token contract address).";
     }
     if (errStr.includes("ZeroAmount")) {
-      return "Issuance amount must be greater than zero.";
+      return "Amount or units must be greater than zero.";
+    }
+    if (errStr.includes("LockPeriodActive")) {
+      return "The lock period for this stake has not expired yet.";
+    }
+    if (errStr.includes("InvalidLockDuration")) {
+      return "Selected lock duration is outside the allowed pool limits.";
+    }
+    if (errStr.includes("InsufficientStakedBalance")) {
+      return "Requested amount exceeds your active staked balance.";
+    }
+    if (errStr.includes("StakingContractNotAuthorized")) {
+      return "The staking contract has not been whitelisted by a compliance officer.";
+    }
+    if (errStr.includes("TransfersDisabledForToken")) {
+      return "Secondary transfers are disabled for this property token.";
+    }
+    if (errStr.includes("NoPendingRewards")) {
+      return "You have no pending rewards to claim.";
+    }
+    if (errStr.includes("RewardTransferFailed")) {
+      return "Contract was unable to send native MST rewards.";
+    }
+    if (errStr.includes("DirectDepositNotAllowed")) {
+      return "Direct transfer to staking contract rejected.";
     }
     if (errStr.includes("PropertyAlreadyRegistered")) {
       return "This property has already been registered on the token contract.";
@@ -787,6 +860,71 @@ export async function issueUnitsOnChain(
   };
 }
 
+export async function purchaseDemoUnitsOnChain(
+  tokenId: bigint,
+  amount: bigint,
+  onPending?: (txHash: string) => void,
+): Promise<{ txHash: string; blockNumber: number }> {
+  if (amount <= 0n) {
+    throw new Error("Purchase amount must be greater than zero.");
+  }
+
+  if (!isTokenLiveConfigured()) {
+    throw new Error(getTokenRegistryConfigurationMessage());
+  }
+
+  const eth = await discoverBridgeKeyProvider();
+  const address = chainConfig.tokenContractAddress;
+  if (!address) {
+    throw new Error("PropertyToken contract address is not configured.");
+  }
+
+  const { BrowserProvider, Contract } = await import("ethers");
+  const provider = new BrowserProvider(eth);
+
+  const accounts: string[] = await provider.send("eth_requestAccounts", []);
+  const account = accounts[0];
+  if (!account) {
+    throw new Error("BridgeKey did not return an account for signing.");
+  }
+
+  const network = await provider.getNetwork();
+  assertCorrectNetwork(network.chainId);
+
+  const signer = await provider.getSigner(account);
+  const contract = new Contract(address, PROPERTY_TOKEN_ABI, signer);
+
+  // Pre-validate eligibility for clear investor error message
+  const eligible: boolean = await contract.getFunction("isEligibleInvestor")(account);
+  if (!eligible) {
+    throw new Error(
+      `Investor account ${account} is not KYC-whitelisted. KYC verification is required before demo purchases.`,
+    );
+  }
+
+  // Pre-validate supply
+  const remaining: bigint = await contract.getFunction("remainingSupply")(tokenId);
+  if (amount > remaining) {
+    throw new Error(
+      `Requested quantity (${amount.toString()}) exceeds available supply (${remaining.toString()}).`,
+    );
+  }
+
+  // Pure demo purchase: 0 payment token / MST transferred
+  const tx = await contract.getFunction("purchaseDemoUnits")(tokenId, amount);
+  if (onPending) onPending(tx.hash);
+  const receipt = await tx.wait();
+
+  if (!receipt || receipt.status !== 1) {
+    throw new Error("Demo unit purchase transaction failed on-chain.");
+  }
+
+  return {
+    txHash: tx.hash,
+    blockNumber: receipt.blockNumber,
+  };
+}
+
 export async function setTransfersEnabledOnChain(
   tokenId: bigint,
   enabled: boolean,
@@ -1051,6 +1189,476 @@ export async function hasRoleOnChain(role: string, accountAddress: string): Prom
     return Boolean(has);
   } catch {
     return false;
+  }
+}
+
+export async function isStakingApprovedOnChain(ownerAddress: string): Promise<boolean> {
+  if (!isTokenLiveConfigured() || !isStakingLiveConfigured() || !ownerAddress?.trim()) {
+    return false;
+  }
+  const tokenAddress = chainConfig.tokenContractAddress;
+  const stakingAddress = chainConfig.stakingContractAddress;
+  if (!tokenAddress || !stakingAddress || !chainConfig.rpcUrl) return false;
+
+  try {
+    const expectedChainId = getExpectedChainId();
+    const { JsonRpcProvider, Contract } = await import("ethers");
+    const provider = new JsonRpcProvider(
+      chainConfig.rpcUrl,
+      { chainId: Number(expectedChainId), name: chainConfig.networkName || "MST" },
+      { staticNetwork: true },
+    );
+    const contract = new Contract(tokenAddress, PROPERTY_TOKEN_ABI, provider);
+    const approved = await contract.getFunction("isApprovedForAll")(
+      ownerAddress.trim(),
+      stakingAddress.trim(),
+    );
+    return Boolean(approved);
+  } catch {
+    return false;
+  }
+}
+
+export async function setStakingApprovalOnChain(
+  approved: boolean,
+  onPending?: (txHash: string) => void,
+): Promise<{ txHash: string; blockNumber: number }> {
+  if (!isTokenLiveConfigured() || !isStakingLiveConfigured()) {
+    throw new Error(getStakingConfigurationMessage());
+  }
+
+  const tokenAddress = chainConfig.tokenContractAddress;
+  const stakingAddress = chainConfig.stakingContractAddress;
+  if (!tokenAddress || !stakingAddress) {
+    throw new Error(getStakingConfigurationMessage());
+  }
+
+  const eth = await discoverBridgeKeyProvider();
+  const { BrowserProvider, Contract } = await import("ethers");
+  const provider = new BrowserProvider(eth);
+
+  const accounts: string[] = await provider.send("eth_requestAccounts", []);
+  const account = accounts[0];
+  if (!account) {
+    throw new Error("BridgeKey did not return an account for signing.");
+  }
+
+  const network = await provider.getNetwork();
+  assertCorrectNetwork(network.chainId);
+
+  const signer = await provider.getSigner(account);
+  const contract = new Contract(tokenAddress, PROPERTY_TOKEN_ABI, signer);
+
+  const tx = await contract.getFunction("setApprovalForAll")(stakingAddress.trim(), approved);
+  if (onPending) onPending(tx.hash);
+  const receipt = await tx.wait();
+
+  if (!receipt || receipt.status !== 1) {
+    throw new Error("Approval transaction failed on-chain.");
+  }
+
+  return {
+    txHash: tx.hash,
+    blockNumber: receipt.blockNumber,
+  };
+}
+
+export async function stakeUnitsOnChain(
+  tokenId: bigint,
+  amount: bigint,
+  lockDurationSeconds: bigint,
+  onPending?: (txHash: string) => void,
+): Promise<{ txHash: string; blockNumber: number }> {
+  if (amount <= 0n) {
+    throw new Error("Staking units must be greater than zero.");
+  }
+
+  if (!isStakingLiveConfigured()) {
+    throw new Error(getStakingConfigurationMessage());
+  }
+
+  const stakingAddress = chainConfig.stakingContractAddress;
+  if (!stakingAddress) {
+    throw new Error(getStakingConfigurationMessage());
+  }
+
+  const eth = await discoverBridgeKeyProvider();
+  const { BrowserProvider, Contract } = await import("ethers");
+  const provider = new BrowserProvider(eth);
+
+  const accounts: string[] = await provider.send("eth_requestAccounts", []);
+  const account = accounts[0];
+  if (!account) {
+    throw new Error("BridgeKey did not return an account for signing.");
+  }
+
+  const network = await provider.getNetwork();
+  assertCorrectNetwork(network.chainId);
+
+  const signer = await provider.getSigner(account);
+  const contract = new Contract(stakingAddress, PROPERTY_TOKEN_STAKING_ABI, signer);
+
+  const tx = await contract.getFunction("stake")(tokenId, amount, lockDurationSeconds);
+  if (onPending) onPending(tx.hash);
+  const receipt = await tx.wait();
+
+  if (!receipt || receipt.status !== 1) {
+    throw new Error("Staking transaction failed on-chain.");
+  }
+
+  return {
+    txHash: tx.hash,
+    blockNumber: receipt.blockNumber,
+  };
+}
+
+export async function unstakeUnitsOnChain(
+  tokenId: bigint,
+  amount: bigint,
+  onPending?: (txHash: string) => void,
+): Promise<{ txHash: string; blockNumber: number }> {
+  if (amount <= 0n) {
+    throw new Error("Unstaking units must be greater than zero.");
+  }
+
+  if (!isStakingLiveConfigured()) {
+    throw new Error(getStakingConfigurationMessage());
+  }
+
+  const stakingAddress = chainConfig.stakingContractAddress;
+  if (!stakingAddress) {
+    throw new Error(getStakingConfigurationMessage());
+  }
+
+  const eth = await discoverBridgeKeyProvider();
+  const { BrowserProvider, Contract } = await import("ethers");
+  const provider = new BrowserProvider(eth);
+
+  const accounts: string[] = await provider.send("eth_requestAccounts", []);
+  const account = accounts[0];
+  if (!account) {
+    throw new Error("BridgeKey did not return an account for signing.");
+  }
+
+  const network = await provider.getNetwork();
+  assertCorrectNetwork(network.chainId);
+
+  const signer = await provider.getSigner(account);
+  const contract = new Contract(stakingAddress, PROPERTY_TOKEN_STAKING_ABI, signer);
+
+  const tx = await contract.getFunction("unstake")(tokenId, amount);
+  if (onPending) onPending(tx.hash);
+  const receipt = await tx.wait();
+
+  if (!receipt || receipt.status !== 1) {
+    throw new Error("Unstaking transaction failed on-chain.");
+  }
+
+  return {
+    txHash: tx.hash,
+    blockNumber: receipt.blockNumber,
+  };
+}
+
+export async function claimStakingRewardsOnChain(
+  tokenId: bigint,
+  onPending?: (txHash: string) => void,
+): Promise<{ txHash: string; blockNumber: number }> {
+  if (!isStakingLiveConfigured()) {
+    throw new Error(getStakingConfigurationMessage());
+  }
+
+  const stakingAddress = chainConfig.stakingContractAddress;
+  if (!stakingAddress) {
+    throw new Error(getStakingConfigurationMessage());
+  }
+
+  const eth = await discoverBridgeKeyProvider();
+  const { BrowserProvider, Contract } = await import("ethers");
+  const provider = new BrowserProvider(eth);
+
+  const accounts: string[] = await provider.send("eth_requestAccounts", []);
+  const account = accounts[0];
+  if (!account) {
+    throw new Error("BridgeKey did not return an account for signing.");
+  }
+
+  const network = await provider.getNetwork();
+  assertCorrectNetwork(network.chainId);
+
+  const signer = await provider.getSigner(account);
+  const contract = new Contract(stakingAddress, PROPERTY_TOKEN_STAKING_ABI, signer);
+
+  const tx = await contract.getFunction("claimRewards")(tokenId);
+  if (onPending) onPending(tx.hash);
+  const receipt = await tx.wait();
+
+  if (!receipt || receipt.status !== 1) {
+    throw new Error("Reward claim transaction failed on-chain.");
+  }
+
+  return {
+    txHash: tx.hash,
+    blockNumber: receipt.blockNumber,
+  };
+}
+
+export async function emergencyWithdrawStakedUnitsOnChain(
+  tokenId: bigint,
+  onPending?: (txHash: string) => void,
+): Promise<{ txHash: string; blockNumber: number }> {
+  if (!isStakingLiveConfigured()) {
+    throw new Error(getStakingConfigurationMessage());
+  }
+
+  const stakingAddress = chainConfig.stakingContractAddress;
+  if (!stakingAddress) {
+    throw new Error(getStakingConfigurationMessage());
+  }
+
+  const eth = await discoverBridgeKeyProvider();
+  const { BrowserProvider, Contract } = await import("ethers");
+  const provider = new BrowserProvider(eth);
+
+  const accounts: string[] = await provider.send("eth_requestAccounts", []);
+  const account = accounts[0];
+  if (!account) {
+    throw new Error("BridgeKey did not return an account for signing.");
+  }
+
+  const network = await provider.getNetwork();
+  assertCorrectNetwork(network.chainId);
+
+  const signer = await provider.getSigner(account);
+  const contract = new Contract(stakingAddress, PROPERTY_TOKEN_STAKING_ABI, signer);
+
+  const tx = await contract.getFunction("emergencyWithdraw")(tokenId);
+  if (onPending) onPending(tx.hash);
+  const receipt = await tx.wait();
+
+  if (!receipt || receipt.status !== 1) {
+    throw new Error("Emergency withdrawal failed on-chain.");
+  }
+
+  return {
+    txHash: tx.hash,
+    blockNumber: receipt.blockNumber,
+  };
+}
+
+export async function fundStakingRewardsOnChain(
+  tokenId: bigint,
+  amountWei: bigint,
+  onPending?: (txHash: string) => void,
+): Promise<{ txHash: string; blockNumber: number }> {
+  if (amountWei <= 0n) {
+    throw new Error("Reward funding amount must be greater than zero.");
+  }
+
+  if (!isStakingLiveConfigured()) {
+    throw new Error(getStakingConfigurationMessage());
+  }
+
+  const stakingAddress = chainConfig.stakingContractAddress;
+  if (!stakingAddress) {
+    throw new Error(getStakingConfigurationMessage());
+  }
+
+  const eth = await discoverBridgeKeyProvider();
+  const { BrowserProvider, Contract } = await import("ethers");
+  const provider = new BrowserProvider(eth);
+
+  const accounts: string[] = await provider.send("eth_requestAccounts", []);
+  const account = accounts[0];
+  if (!account) {
+    throw new Error("BridgeKey did not return an account for signing.");
+  }
+
+  const network = await provider.getNetwork();
+  assertCorrectNetwork(network.chainId);
+
+  const signer = await provider.getSigner(account);
+  const contract = new Contract(stakingAddress, PROPERTY_TOKEN_STAKING_ABI, signer);
+
+  const tx = await contract.getFunction("fundRewards")(tokenId, { value: amountWei });
+  if (onPending) onPending(tx.hash);
+  const receipt = await tx.wait();
+
+  if (!receipt || receipt.status !== 1) {
+    throw new Error("Reward funding failed on-chain.");
+  }
+
+  return {
+    txHash: tx.hash,
+    blockNumber: receipt.blockNumber,
+  };
+}
+
+export async function getStakeInfoOnChain(
+  tokenId: bigint,
+  investorAddress: string,
+): Promise<OnChainStakeInfo> {
+  const empty: OnChainStakeInfo = {
+    amount: 0n,
+    lockStartTime: 0n,
+    lockEndTime: 0n,
+    pendingRewards: 0n,
+    isLocked: false,
+  };
+
+  if (!isStakingLiveConfigured() || !investorAddress?.trim()) {
+    return empty;
+  }
+  const address = chainConfig.stakingContractAddress;
+  if (!address || !chainConfig.rpcUrl) return empty;
+
+  try {
+    const expectedChainId = getExpectedChainId();
+    const { JsonRpcProvider, Contract } = await import("ethers");
+    const provider = new JsonRpcProvider(
+      chainConfig.rpcUrl,
+      { chainId: Number(expectedChainId), name: chainConfig.networkName || "MST" },
+      { staticNetwork: true },
+    );
+    const contract = new Contract(address, PROPERTY_TOKEN_STAKING_ABI, provider);
+    const data = await contract.getFunction("getStakeInfo")(tokenId, investorAddress.trim());
+    return {
+      amount: BigInt(String(data[0])),
+      lockStartTime: BigInt(String(data[1])),
+      lockEndTime: BigInt(String(data[2])),
+      pendingRewards: BigInt(String(data[3])),
+      isLocked: Boolean(data[4]),
+    };
+  } catch {
+    return empty;
+  }
+}
+
+export async function getPendingStakingRewardsOnChain(
+  tokenId: bigint,
+  investorAddress: string,
+): Promise<bigint> {
+  if (!isStakingLiveConfigured() || !investorAddress?.trim()) {
+    return 0n;
+  }
+  const address = chainConfig.stakingContractAddress;
+  if (!address || !chainConfig.rpcUrl) return 0n;
+
+  try {
+    const expectedChainId = getExpectedChainId();
+    const { JsonRpcProvider, Contract } = await import("ethers");
+    const provider = new JsonRpcProvider(
+      chainConfig.rpcUrl,
+      { chainId: Number(expectedChainId), name: chainConfig.networkName || "MST" },
+      { staticNetwork: true },
+    );
+    const contract = new Contract(address, PROPERTY_TOKEN_STAKING_ABI, provider);
+    const pending: bigint = await contract.getFunction("getPendingRewards")(
+      tokenId,
+      investorAddress.trim(),
+    );
+    return BigInt(String(pending));
+  } catch {
+    return 0n;
+  }
+}
+
+export async function getStakingPoolInfoOnChain(tokenId: bigint): Promise<OnChainStakingPoolInfo> {
+  const empty: OnChainStakingPoolInfo = {
+    totalStaked: 0n,
+    totalRewardsFunded: 0n,
+    totalRewardsClaimed: 0n,
+    minLockDuration: 0n,
+    maxLockDuration: 0n,
+    isEnabled: false,
+    currentRewardBalance: 0n,
+  };
+
+  if (!isStakingLiveConfigured()) {
+    return empty;
+  }
+  const address = chainConfig.stakingContractAddress;
+  if (!address || !chainConfig.rpcUrl) return empty;
+
+  try {
+    const expectedChainId = getExpectedChainId();
+    const { JsonRpcProvider, Contract } = await import("ethers");
+    const provider = new JsonRpcProvider(
+      chainConfig.rpcUrl,
+      { chainId: Number(expectedChainId), name: chainConfig.networkName || "MST" },
+      { staticNetwork: true },
+    );
+    const contract = new Contract(address, PROPERTY_TOKEN_STAKING_ABI, provider);
+    const data = await contract.getFunction("getPoolInfo")(tokenId);
+    return {
+      totalStaked: BigInt(String(data[0])),
+      totalRewardsFunded: BigInt(String(data[1])),
+      totalRewardsClaimed: BigInt(String(data[2])),
+      minLockDuration: BigInt(String(data[3])),
+      maxLockDuration: BigInt(String(data[4])),
+      isEnabled: Boolean(data[5]),
+      currentRewardBalance: BigInt(String(data[6])),
+    };
+  } catch {
+    return empty;
+  }
+}
+
+export async function getPropertyTokenByIdOnChain(
+  tokenId: bigint,
+): Promise<OnChainPropertyTokenInfo> {
+  const empty: OnChainPropertyTokenInfo = {
+    tokenId,
+    propertyRef: "",
+    documentHash: "",
+    maxSupply: 0n,
+    unitPriceReference: 0n,
+    metadataURI: "",
+    registeredAt: 0n,
+    transfersEnabled: false,
+    totalSupply: 0n,
+    remainingSupply: 0n,
+    exists: false,
+  };
+
+  if (!isTokenLiveConfigured() || tokenId === 0n) {
+    return empty;
+  }
+
+  const address = chainConfig.tokenContractAddress;
+  if (!address || !chainConfig.rpcUrl) return empty;
+
+  try {
+    const expectedChainId = getExpectedChainId();
+    const { JsonRpcProvider, Contract } = await import("ethers");
+    const provider = new JsonRpcProvider(
+      chainConfig.rpcUrl,
+      { chainId: Number(expectedChainId), name: chainConfig.networkName || "MST" },
+      { staticNetwork: true },
+    );
+    const contract = new Contract(address, PROPERTY_TOKEN_ABI, provider);
+
+    const [propData, totalSupply, remainingSupply] = await Promise.all([
+      contract.getFunction("getProperty")(tokenId),
+      contract.getFunction("totalSupply")(tokenId),
+      contract.getFunction("remainingSupply")(tokenId),
+    ]);
+
+    return {
+      tokenId,
+      propertyRef: String(propData[0]),
+      documentHash: String(propData[1]),
+      maxSupply: BigInt(String(propData[2])),
+      unitPriceReference: BigInt(String(propData[3])),
+      metadataURI: String(propData[4]),
+      registeredAt: BigInt(String(propData[5])),
+      transfersEnabled: Boolean(propData[6]),
+      totalSupply: BigInt(String(totalSupply)),
+      remainingSupply: BigInt(String(remainingSupply)),
+      exists: true,
+    };
+  } catch {
+    return empty;
   }
 }
 

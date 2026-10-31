@@ -9,6 +9,11 @@ export type ActivityKind =
   | "Investor Eligibility"
   | "Property Registered"
   | "Units Issued"
+  | "Demo Units Purchased"
+  | "Units Staked"
+  | "Units Unstaked"
+  | "Staking Approved"
+  | "Staking Rewards Claimed"
   | "Transfers Updated"
   | "Contract Paused"
   | "Contract Unpaused";

@@ -314,9 +314,9 @@ describe("blockchain helpers", () => {
     });
 
     it("enforces Mainnet chain ID 4646 when granting role on Mainnet", async () => {
-      import.meta.env.VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS =
+      import.meta.env["VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS"] =
         "0x39985d784615f307D34B8143768a54bEEaB94537";
-      process.env.VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS =
+      process.env["VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS"] =
         "0x39985d784615f307D34B8143768a54bEEaB94537";
       setActiveNetwork("mainnet");
 
@@ -339,8 +339,8 @@ describe("blockchain helpers", () => {
         ).rejects.toThrow(/Expected: 4646 \(MST Mainnet\)/i);
       } finally {
         window.removeEventListener("eip6963:requestProvider", announce);
-        import.meta.env.VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS = "";
-        process.env.VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS = "";
+        import.meta.env["VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS"] = "";
+        process.env["VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS"] = "";
         setActiveNetwork("testnet");
       }
     });

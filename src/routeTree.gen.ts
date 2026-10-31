@@ -19,6 +19,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as PauseRouteImport } from './routes/pause'
 import { Route as RentalRouteImport } from './routes/rental'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as StakingRouteImport } from './routes/staking'
 import { Route as VerifyRouteImport } from './routes/verify'
 import { Route as PropertiesNewRouteImport } from './routes/properties/new'
 
@@ -72,6 +73,11 @@ const SignupRoute = SignupRouteImport.update({
   path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StakingRoute = StakingRouteImport.update({
+  id: '/staking',
+  path: '/staking',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VerifyRoute = VerifyRouteImport.update({
   id: '/verify',
   path: '/verify',
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/pause': typeof PauseRoute
   '/rental': typeof RentalRoute
   '/signup': typeof SignupRoute
+  '/staking': typeof StakingRoute
   '/verify': typeof VerifyRoute
   '/properties/new': typeof PropertiesNewRoute
 }
@@ -108,6 +115,7 @@ export interface FileRoutesByTo {
   '/pause': typeof PauseRoute
   '/rental': typeof RentalRoute
   '/signup': typeof SignupRoute
+  '/staking': typeof StakingRoute
   '/verify': typeof VerifyRoute
   '/properties/new': typeof PropertiesNewRoute
 }
@@ -123,6 +131,7 @@ export interface FileRoutesById {
   '/pause': typeof PauseRoute
   '/rental': typeof RentalRoute
   '/signup': typeof SignupRoute
+  '/staking': typeof StakingRoute
   '/verify': typeof VerifyRoute
   '/properties/new': typeof PropertiesNewRoute
 }
@@ -139,6 +148,7 @@ export interface FileRouteTypes {
     | '/pause'
     | '/rental'
     | '/signup'
+    | '/staking'
     | '/verify'
     | '/properties/new'
   fileRoutesByTo: FileRoutesByTo
@@ -153,6 +163,7 @@ export interface FileRouteTypes {
     | '/pause'
     | '/rental'
     | '/signup'
+    | '/staking'
     | '/verify'
     | '/properties/new'
   id:
@@ -167,6 +178,7 @@ export interface FileRouteTypes {
     | '/pause'
     | '/rental'
     | '/signup'
+    | '/staking'
     | '/verify'
     | '/properties/new'
   fileRoutesById: FileRoutesById
@@ -182,6 +194,7 @@ export interface RootRouteChildren {
   PauseRoute: typeof PauseRoute
   RentalRoute: typeof RentalRoute
   SignupRoute: typeof SignupRoute
+  StakingRoute: typeof StakingRoute
   VerifyRoute: typeof VerifyRoute
   PropertiesNewRoute: typeof PropertiesNewRoute
 }
@@ -258,6 +271,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/staking': {
+      id: '/staking'
+      path: '/staking'
+      fullPath: '/staking'
+      preLoaderRoute: typeof StakingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/verify': {
       id: '/verify'
       path: '/verify'
@@ -286,6 +306,7 @@ const rootRouteChildren: RootRouteChildren = {
   PauseRoute: PauseRoute,
   RentalRoute: RentalRoute,
   SignupRoute: SignupRoute,
+  StakingRoute: StakingRoute,
   VerifyRoute: VerifyRoute,
   PropertiesNewRoute: PropertiesNewRoute,
 }

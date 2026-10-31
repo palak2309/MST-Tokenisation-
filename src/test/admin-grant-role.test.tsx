@@ -31,8 +31,8 @@ vi.mock("@tanstack/react-router", async () => {
 });
 
 describe("Admin Console: Grant On-Chain Compliance Role Multi-Network Action", () => {
-  const originalImportMetaMainnet = import.meta.env.VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS;
-  const originalProcessEnvMainnet = process.env.VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS;
+  const originalImportMetaMainnet = import.meta.env["VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS"];
+  const originalProcessEnvMainnet = process.env["VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS"];
 
   beforeEach(async () => {
     resetAuthStateForTesting();
@@ -45,8 +45,8 @@ describe("Admin Console: Grant On-Chain Compliance Role Multi-Network Action", (
     cleanup();
     clientResetSessionForTesting();
     setActiveNetwork("testnet");
-    import.meta.env.VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS = originalImportMetaMainnet;
-    process.env.VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS = originalProcessEnvMainnet;
+    import.meta.env["VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS"] = originalImportMetaMainnet;
+    process.env["VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS"] = originalProcessEnvMainnet;
   });
 
   it("renders the temporary action header and testnet badge on Testnet", async () => {
@@ -81,13 +81,13 @@ describe("Admin Console: Grant On-Chain Compliance Role Multi-Network Action", (
       expect(screen.getByText(new RegExp(ROLES.COMPLIANCE_ROLE))).toBeInTheDocument();
       expect(screen.getByText("grantRole(COMPLIANCE_ROLE, Account1)")).toBeInTheDocument();
       // Target Contract link displays Testnet PropertyToken shortened address
-      expect(screen.getByText(/0x681Ef61D\.\.\.aA29407F/i)).toBeInTheDocument();
+      expect(screen.getByText(/0xdBD67208\.\.\.2A61466E/i)).toBeInTheDocument();
     });
   });
 
   it("renders Mainnet action header and confirmation summary when switched to Mainnet with configured contract", async () => {
-    import.meta.env.VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS = MAINNET_TOKEN_ADDRESS;
-    process.env.VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS = MAINNET_TOKEN_ADDRESS;
+    import.meta.env["VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS"] = MAINNET_TOKEN_ADDRESS;
+    process.env["VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS"] = MAINNET_TOKEN_ADDRESS;
 
     const Component = Route.options.component!;
     render(
@@ -115,8 +115,8 @@ describe("Admin Console: Grant On-Chain Compliance Role Multi-Network Action", (
   });
 
   it("shows unconfigured contract warning when active network has no PropertyToken contract", async () => {
-    import.meta.env.VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS = "";
-    process.env.VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS = "";
+    import.meta.env["VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS"] = "";
+    process.env["VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS"] = "";
 
     const Component = Route.options.component!;
     render(
@@ -139,8 +139,8 @@ describe("Admin Console: Grant On-Chain Compliance Role Multi-Network Action", (
   });
 
   it("strictly isolates contract addresses between Testnet and Mainnet", async () => {
-    import.meta.env.VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS = MAINNET_TOKEN_ADDRESS;
-    process.env.VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS = MAINNET_TOKEN_ADDRESS;
+    import.meta.env["VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS"] = MAINNET_TOKEN_ADDRESS;
+    process.env["VITE_MST_MAINNET_TOKEN_CONTRACT_ADDRESS"] = MAINNET_TOKEN_ADDRESS;
 
     const Component = Route.options.component!;
     const { unmount } = render(
@@ -152,7 +152,7 @@ describe("Admin Console: Grant On-Chain Compliance Role Multi-Network Action", (
     // On Testnet: must not show Mainnet address
     await waitFor(() => {
       expect(screen.queryByText(/0x39985d78/i)).not.toBeInTheDocument();
-      expect(screen.getByText(/0x681Ef61D/i)).toBeInTheDocument();
+      expect(screen.getByText(/0xdBD67208/i)).toBeInTheDocument();
     });
 
     unmount();

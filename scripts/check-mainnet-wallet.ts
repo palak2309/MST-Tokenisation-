@@ -78,13 +78,10 @@ export function isDirectExecution(
 export async function checkMainnetWallet() {
   console.log("=== MST Mainnet Deployer & Configuration Verification (Read-Only) ===");
 
-  const rpcUrl = process.env["MST_MAINNET_RPC_URL"]?.trim();
-  if (!rpcUrl) {
-    throw new Error(
-      "MST_MAINNET_RPC_URL is not set.\n" +
-        'Please run: $env:MST_MAINNET_RPC_URL = "https://mariorpc.mstblockchain.com/"',
-    );
-  }
+  const rpcUrl =
+    process.env["MST_MAINNET_RPC_URL"]?.trim() ||
+    process.env["VITE_MST_MAINNET_RPC_URL"]?.trim() ||
+    "https://mariorpc.mstblockchain.com/";
 
   let connection;
   try {
@@ -129,6 +126,19 @@ export async function checkMainnetWallet() {
     actualNetwork = await ethers.provider.getNetwork();
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
+    if (
+      message.includes("MST_MAINNET_PRIVATE_KEY") ||
+      message.includes("HHE7") ||
+      message.includes("HHE100") ||
+      message.toLowerCase().includes("configuration variable")
+    ) {
+      throw new Error(
+        "MST_MAINNET_PRIVATE_KEY is not configured in the current session or .env.\n" +
+          "Supply it securely by adding it to .env or setting in your terminal session:\n" +
+          "  MST_MAINNET_PRIVATE_KEY=0x...\n" +
+          "Never commit private keys to Git.",
+      );
+    }
     throw new Error(
       `Unable to reach MST Mainnet RPC (${rpcUrl}).\n` +
         `  Error: ${message}\n` +

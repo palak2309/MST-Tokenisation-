@@ -22,6 +22,8 @@ import { deleteUserProperty, useAllProperties, useUserProperties } from "@/lib/p
 import { requireAuthLoader } from "@/lib/auth/routeAuth";
 import { ProtectedRoute } from "@/lib/auth/guards";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { PropertyPurchaseModal } from "@/components/PropertyPurchaseModal";
+import { PropertyDetailsModal } from "@/components/PropertyDetailsModal";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -62,6 +64,12 @@ function Dashboard() {
   const sampleProperties = allProperties.filter((p) => !p.isUserCreated);
 
   const [propertyToDelete, setPropertyToDelete] = useState<Property | null>(null);
+  const [selectedPropertyForPurchase, setSelectedPropertyForPurchase] = useState<Property | null>(
+    null,
+  );
+  const [selectedPropertyForDetails, setSelectedPropertyForDetails] = useState<Property | null>(
+    null,
+  );
 
   const allDocs = allProperties.flatMap((p) => p.docs);
   const reviewed = allDocs.filter((d) => d.status === "Reviewed").length;
@@ -183,11 +191,27 @@ function Dashboard() {
                           </div>
                         </div>
 
-                        <div className="mt-3 flex items-center justify-between border-t pt-3">
+                        <div className="mt-3 flex items-center justify-between border-t pt-3 gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => setSelectedPropertyForPurchase(p)}
+                            className="h-7 px-2 text-[11px] gap-1 bg-primary hover:bg-primary/90"
+                          >
+                            <Coins className="h-3 w-3" />
+                            <span>Buy</span>
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setSelectedPropertyForDetails(p)}
+                            className="h-7 px-2 text-[11px]"
+                          >
+                            Details
+                          </Button>
                           <Link
                             to="/verify"
                             search={{ property: p.id }}
-                            className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                            className="flex items-center gap-1 text-xs font-medium text-primary hover:underline ml-auto"
                           >
                             Review ({p.docs.length} docs) <ArrowRight className="h-3.5 w-3.5" />
                           </Link>
@@ -239,47 +263,117 @@ function Dashboard() {
             <div className="grid gap-4 md:grid-cols-2">
               {sampleProperties.map((p, i) => {
                 const v = verificationLabel(p);
+                const pTokenId =
+                  p.id === "MST-DEMO-PUNE-002"
+                    ? 2
+                    : p.id === "PRP-TEST-SIM-001"
+                      ? 1
+                      : (p.tokenId ?? 1);
+                const maxSupplyNum = p.maxSupply ?? 1500;
+                const availableUnitsNum =
+                  p.id === "PRP-TEST-SIM-001" ? maxSupplyNum - 10 : maxSupplyNum;
+                const unitPriceNum = p.unitPrice || 1000;
+
                 return (
-                  <Link
+                  <div
                     key={p.id}
-                    to="/verify"
-                    search={{ property: p.id }}
-                    className="panel group overflow-hidden transition-shadow hover:shadow-md"
+                    className="panel group overflow-hidden transition-shadow hover:shadow-md flex flex-col justify-between"
                   >
-                    <img
-                      src={p.image}
-                      alt={p.name}
-                      width={1024}
-                      height={640}
-                      loading={i ? "lazy" : undefined}
-                      className="aspect-[16/10] w-full object-cover"
-                    />
-                    <div className="p-4">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-mono text-xs text-muted-foreground">{p.id}</span>
-                        <div className="flex items-center gap-1.5">
-                          <Pill tone="neutral">Sample</Pill>
-                          <Pill tone={v.tone}>{v.label}</Pill>
+                    <div>
+                      <img
+                        src={p.image}
+                        alt={p.name}
+                        width={1024}
+                        height={640}
+                        loading={i ? "lazy" : undefined}
+                        className="aspect-[16/10] w-full object-cover"
+                      />
+                      <div className="p-4 space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono text-xs font-semibold text-primary">
+                            {p.id}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded border text-muted-foreground">
+                              Token #{pTokenId}
+                            </span>
+                            <Pill tone="neutral">Sample</Pill>
+                            <Pill tone={v.tone}>{v.label}</Pill>
+                          </div>
                         </div>
+
+                        <div>
+                          <h3 className="text-base font-semibold text-foreground">{p.name}</h3>
+                          <p className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                            <MapPin className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">{p.location}</span>
+                          </p>
+                        </div>
+
+                        {/* On-chain token and supply stats */}
+                        <div className="grid grid-cols-3 gap-2 rounded-lg bg-muted/40 p-2.5 text-xs">
+                          <div>
+                            <span className="text-[10px] text-muted-foreground uppercase block font-medium">
+                              Total Supply
+                            </span>
+                            <p className="font-semibold font-mono text-foreground">
+                              {maxSupplyNum.toLocaleString()}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-muted-foreground uppercase block font-medium">
+                              Available
+                            </span>
+                            <p className="font-semibold font-mono text-emerald-600 dark:text-emerald-400">
+                              {availableUnitsNum.toLocaleString()}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-muted-foreground uppercase block font-medium">
+                              Demo Price
+                            </span>
+                            <p className="font-semibold font-mono text-primary">
+                              {inr(unitPriceNum)}
+                            </p>
+                          </div>
+                        </div>
+
+                        <p className="text-[11px] text-muted-foreground italic">
+                          Demo purchase — no real-money payment. Fictional fractional units.
+                        </p>
                       </div>
-                      <h3 className="mt-2 font-semibold">{p.name}</h3>
-                      <p className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <MapPin className="h-3.5 w-3.5 shrink-0" />
-                        <span className="truncate">{p.location}</span>
-                      </p>
-                      <p className="mt-2 text-sm">
-                        Indicative value{" "}
-                        <span className="font-semibold">{inr(p.indicativeValue)}</span>{" "}
-                        <span className="text-xs text-muted-foreground">
-                          (illustrative estimate)
-                        </span>
-                      </p>
-                      <p className="mt-2 flex items-center gap-1 text-sm font-medium text-primary">
-                        Review documents{" "}
-                        <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                      </p>
                     </div>
-                  </Link>
+
+                    <div className="p-4 pt-0 border-t mt-auto flex flex-col gap-2">
+                      <div className="flex gap-2 pt-3">
+                        <Button
+                          size="sm"
+                          onClick={() => setSelectedPropertyForPurchase(p)}
+                          className="flex-1 gap-1.5 text-xs bg-primary hover:bg-primary/90"
+                        >
+                          <Coins className="h-3.5 w-3.5" />
+                          <span>Buy Units</span>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setSelectedPropertyForDetails(p)}
+                          className="flex-1 text-xs"
+                        >
+                          View Details
+                        </Button>
+                      </div>
+
+                      <Link
+                        to="/verify"
+                        search={{ property: p.id }}
+                        className="text-center text-xs text-primary hover:underline flex items-center justify-center gap-1 pt-1 font-medium"
+                      >
+                        <span>Review documents ({p.docs.length})</span>
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </div>
+                  </div>
                 );
               })}
             </div>
@@ -350,6 +444,20 @@ function Dashboard() {
           investments.
         </Disclaimer>
       </div>
+
+      {/* Property Purchase Modal */}
+      <PropertyPurchaseModal
+        property={selectedPropertyForPurchase}
+        isOpen={Boolean(selectedPropertyForPurchase)}
+        onClose={() => setSelectedPropertyForPurchase(null)}
+      />
+
+      {/* Property Details Modal */}
+      <PropertyDetailsModal
+        property={selectedPropertyForDetails}
+        isOpen={Boolean(selectedPropertyForDetails)}
+        onClose={() => setSelectedPropertyForDetails(null)}
+      />
     </>
   );
 }

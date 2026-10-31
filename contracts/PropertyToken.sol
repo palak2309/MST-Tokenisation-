@@ -30,6 +30,7 @@ contract PropertyToken is ERC1155Supply, AccessControl, Pausable {
     mapping(uint256 => Property) private _properties;
     mapping(bytes32 => uint256) public tokenIdByPropertyRef;
     mapping(address => bool) public isEligibleInvestor;
+    mapping(address => bool) public isAuthorizedStakingContract;
 
     event PropertyRegistered(
         uint256 indexed tokenId,
@@ -40,8 +41,19 @@ contract PropertyToken is ERC1155Supply, AccessControl, Pausable {
         string metadataURI
     );
     event UnitsIssued(uint256 indexed tokenId, address indexed to, uint256 amount, address indexed issuer);
+    event DemoUnitsPurchased(
+        uint256 indexed tokenId,
+        address indexed investor,
+        uint256 amount,
+        uint256 totalDemoValue
+    );
     event InvestorEligibilityUpdated(address indexed investor, bool eligible, address indexed by);
     event TransfersEnabledUpdated(uint256 indexed tokenId, bool enabled, address indexed by);
+    event StakingContractAuthorizationUpdated(
+        address indexed stakingContract,
+        bool authorized,
+        address indexed by
+    );
 
     error InvalidPropertyRef();
     error InvalidDocumentHash();
@@ -101,6 +113,23 @@ contract PropertyToken is ERC1155Supply, AccessControl, Pausable {
         emit UnitsIssued(tokenId, to, amount, msg.sender);
     }
 
+    /// @notice Allows an eligible (KYC-verified) investor to self-mint demo units for test/demo purposes.
+    /// @dev Demo purchase only. No real-money payment, no MST payment transfer, no claim of legal property ownership.
+    ///      Guarded by whenNotPaused, investor eligibility check, and supply cap check.
+    function purchaseDemoUnits(uint256 tokenId, uint256 amount) external whenNotPaused {
+        Property storage p = _properties[tokenId];
+        if (p.maxSupply == 0) revert UnknownToken(tokenId);
+        if (amount == 0) revert ZeroAmount();
+        if (!isEligibleInvestor[msg.sender]) revert IneligibleInvestor(msg.sender);
+        uint256 remaining = p.maxSupply - totalSupply(tokenId);
+        if (amount > remaining) revert SupplyCapExceeded(tokenId, amount, remaining);
+
+        _mint(msg.sender, tokenId, amount, "");
+        emit UnitsIssued(tokenId, msg.sender, amount, msg.sender);
+        uint256 totalDemoValue = amount * p.unitPriceReference;
+        emit DemoUnitsPurchased(tokenId, msg.sender, amount, totalDemoValue);
+    }
+
     // ---------- Compliance controls ----------
 
     function setInvestorEligibility(address investor, bool eligible) external onlyRole(COMPLIANCE_ROLE) {
@@ -113,6 +142,15 @@ contract PropertyToken is ERC1155Supply, AccessControl, Pausable {
         if (_properties[tokenId].maxSupply == 0) revert UnknownToken(tokenId);
         _properties[tokenId].transfersEnabled = enabled;
         emit TransfersEnabledUpdated(tokenId, enabled, msg.sender);
+    }
+
+    function setStakingContractAuthorization(
+        address stakingContract,
+        bool authorized
+    ) external onlyRole(COMPLIANCE_ROLE) {
+        if (stakingContract == address(0)) revert InvalidRecipient(stakingContract);
+        isAuthorizedStakingContract[stakingContract] = authorized;
+        emit StakingContractAuthorizationUpdated(stakingContract, authorized, msg.sender);
     }
 
     function pause() external onlyRole(PAUSER_ROLE) {
@@ -151,8 +189,13 @@ contract PropertyToken is ERC1155Supply, AccessControl, Pausable {
         if (from != address(0) && to != address(0)) {
             if (!isEligibleInvestor[from]) revert IneligibleInvestor(from);
             if (!isEligibleInvestor[to]) revert IneligibleInvestor(to);
+
+            bool isStakingExemption = (isAuthorizedStakingContract[to] || isAuthorizedStakingContract[from]);
+
             for (uint256 i = 0; i < ids.length; i++) {
-                if (!_properties[ids[i]].transfersEnabled) revert TransfersDisabled(ids[i]);
+                if (!_properties[ids[i]].transfersEnabled && !isStakingExemption) {
+                    revert TransfersDisabled(ids[i]);
+                }
             }
         }
         super._update(from, to, ids, values);

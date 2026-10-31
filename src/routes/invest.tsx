@@ -10,6 +10,7 @@ import { hypotheticalUnits, investorShare } from "@/lib/finance";
 import { addActivity, useActivity } from "@/lib/activity";
 import { useAllProperties } from "@/lib/propertyStore";
 import { TokenisationWorkspace } from "@/components/TokenisationWorkspace";
+import { PropertyPurchaseModal } from "@/components/PropertyPurchaseModal";
 import { requireAuthLoader } from "@/lib/auth/routeAuth";
 import { ProtectedRoute } from "@/lib/auth/guards";
 
@@ -48,6 +49,7 @@ function InvestPage() {
   const [activeTab, setActiveTab] = useState<"tokenisation" | "calculator">("tokenisation");
   const [pid, setPid] = useState(allProperties[0]?.id ?? DEFAULT_PROPERTY.id);
   const [amount, setAmount] = useState(100_000);
+  const [purchaseModalOpen, setPurchaseModalOpen] = useState(false);
 
   const p = allProperties.find((x) => x.id === pid) ?? allProperties[0] ?? DEFAULT_PROPERTY;
   const eligibleContribution = Math.min(
@@ -214,22 +216,32 @@ function InvestPage() {
                 </ul>
               </div>
 
-              <Button
-                disabled={amount <= 0}
-                onClick={() => {
-                  addActivity({
-                    kind: "Contribution",
-                    propertyId: p.id,
-                    detail: `Hypothetical contribution of ${inr(eligibleContribution)} → ${units} units`,
-                    source: "demo",
-                  });
-                  toast.success("Simulated contribution recorded", {
-                    description: "Local session simulation — no funds or tokens moved.",
-                  });
-                }}
-              >
-                Record simulated contribution (session only)
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  onClick={() => setPurchaseModalOpen(true)}
+                  className="gap-1.5 bg-primary hover:bg-primary/90"
+                >
+                  <Coins className="h-4 w-4" />
+                  <span>Buy Demo Units ({p.name})</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={amount <= 0}
+                  onClick={() => {
+                    addActivity({
+                      kind: "Contribution",
+                      propertyId: p.id,
+                      detail: `Hypothetical contribution of ${inr(eligibleContribution)} → ${units} units`,
+                      source: "demo",
+                    });
+                    toast.success("Simulated contribution recorded", {
+                      description: "Local session simulation — no funds or tokens moved.",
+                    });
+                  }}
+                >
+                  Record simulated contribution (session only)
+                </Button>
+              </div>
             </section>
 
             <div className="space-y-6">
@@ -292,6 +304,13 @@ function InvestPage() {
           </div>
         </>
       )}
+
+      {/* Property Purchase Modal */}
+      <PropertyPurchaseModal
+        property={p}
+        isOpen={purchaseModalOpen}
+        onClose={() => setPurchaseModalOpen(false)}
+      />
     </>
   );
 }
