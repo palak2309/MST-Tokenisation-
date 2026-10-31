@@ -74,6 +74,11 @@ Key innovations include:
    *Parameters:* propertyToken = `0x290120134219BA03C0ecd47fD35FeD6B10f03839`, admin = `0xEF9fE181ed6659096895bb54f71487B67E3b262b`.  
    *Address:* `0x57f775299ADF622adc729d0e8854A99d657717Aa` · *Bytecode:* `30,284` chars · Immutables & AccessControl verified on-chain.
 
+5. **Transaction 4 — Whitelist Staking Contract Eligibility (`setInvestorEligibility`):**  
+   Hash: [`0x643e87e02fa7c779105a1fbf640f4b2a29fd8a57f14d3dd66b7afdb8dd412fb3`](https://mstscan.com/tx/0x643e87e02fa7c779105a1fbf640f4b2a29fd8a57f14d3dd66b7afdb8dd412fb3)  
+   Block: `#21798982` · Gas: `48,984` · Fee: `0.000048984 MST` · Status: `SUCCESS`  
+   *Verification:* `isEligibleInvestor(0x57f775299ADF622adc729d0e8854A99d657717Aa) == true`.
+
 ### MST Testnet Full Lifecycle Transactions
 1. **Property Token Issuance (10 units):**  
    [`0x6340e0110af64b3aeeaf8fa812ed446b6a0af9cb08cb95e9260aadf11f6acb63`](https://testnet.mstscan.com/tx/0x6340e0110af64b3aeeaf8fa812ed446b6a0af9cb08cb95e9260aadf11f6acb63)

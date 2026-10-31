@@ -141,6 +141,10 @@ Designed for regulatory compliance and fractional investor access, TokenEstate t
    - Tx Hash: [`0x48be2da40d4771d893b937379f143a841b21ebda69b884e03bc681fca9fa1c6b`](https://mstscan.com/tx/0x48be2da40d4771d893b937379f143a841b21ebda69b884e03bc681fca9fa1c6b)
    - Block: `#21798794` · Gas: `3,427,600` · Fee: `0.0034276 MST`
    - Details: Deployed at `0x57f775299ADF622adc729d0e8854A99d657717Aa`, underlying asset `0x290120134219BA03C0ecd47fD35FeD6B10f03839`.
+5. **Transaction 4 — Authorize Staking Investor Eligibility:**
+   - Tx Hash: [`0x643e87e02fa7c779105a1fbf640f4b2a29fd8a57f14d3dd66b7afdb8dd412fb3`](https://mstscan.com/tx/0x643e87e02fa7c779105a1fbf640f4b2a29fd8a57f14d3dd66b7afdb8dd412fb3)
+   - Block: `#21798982` · Gas: `48,984` · Fee: `0.000048984 MST`
+   - Details: `PropertyToken.setInvestorEligibility(0x57f775299ADF622adc729d0e8854A99d657717Aa, true)` verified.
 
 ### MST Testnet Verified Receipts
 1. **Token Minting (10 Units):**
