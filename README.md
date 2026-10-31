@@ -109,7 +109,7 @@ Designed for regulatory compliance and fractional investor access, TokenEstate t
 | Contract | Mainnet Address | Deployment Status | Explorer Link |
 |---|---|:---:|---|
 | **PropertyToken** | `0x290120134219BA03C0ecd47fD35FeD6B10f03839` | **VERIFIED ON-CHAIN** | [View Contract](https://mstscan.com/address/0x290120134219BA03C0ecd47fD35FeD6B10f03839) |
-| **PropertyTokenStaking** (Tx 3 Target) | `0x57f775299ADF622adc729d0e8854A99d657717Aa` | **PREPARED (Nonce 15)** | Deterministic CREATE |
+| **PropertyTokenStaking** | `0x57f775299ADF622adc729d0e8854A99d657717Aa` | **VERIFIED ON-CHAIN** | [View Contract](https://mstscan.com/address/0x57f775299ADF622adc729d0e8854A99d657717Aa) |
 | **PropertyDocumentRegistry** | `0x681Ef61D12372e040EE5f6e058932818aA29407F` | **VERIFIED ON-CHAIN** | [View Contract](https://mstscan.com/address/0x681Ef61D12372e040EE5f6e058932818aA29407F) |
 
 ### MST Testnet (Chain ID: `91562037`)
@@ -137,6 +137,10 @@ Designed for regulatory compliance and fractional investor access, TokenEstate t
    - Tx Hash: [`0x6590cddda19e1f1f9a48bafee31fb9fd44f3b5b18807f1d997fbc87a9973f623`](https://mstscan.com/tx/0x6590cddda19e1f1f9a48bafee31fb9fd44f3b5b18807f1d997fbc87a9973f623)
    - Block: `#21795280` · Gas: `194,643` · Fee: `0.000194643 MST`
    - Details: `MST-DEMO-PUNE-002`, maxSupply: 1,500, price: ₹1,000, transfersEnabled: false.
+4. **Transaction 3 — Deploy PropertyTokenStaking:**
+   - Tx Hash: [`0x48be2da40d4771d893b937379f143a841b21ebda69b884e03bc681fca9fa1c6b`](https://mstscan.com/tx/0x48be2da40d4771d893b937379f143a841b21ebda69b884e03bc681fca9fa1c6b)
+   - Block: `#21798794` · Gas: `3,427,600` · Fee: `0.0034276 MST`
+   - Details: Deployed at `0x57f775299ADF622adc729d0e8854A99d657717Aa`, underlying asset `0x290120134219BA03C0ecd47fD35FeD6B10f03839`.
 
 ### MST Testnet Verified Receipts
 1. **Token Minting (10 Units):**

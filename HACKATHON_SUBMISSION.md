@@ -37,7 +37,7 @@ Key innovations include:
 | Contract | Address | Verification Status | Explorer Link |
 |---|---|:---:|---|
 | **PropertyToken (ERC-1155)** | `0x290120134219BA03C0ecd47fD35FeD6B10f03839` | **DEPLOYED & ACTIVE** | [MSTScan Address](https://mstscan.com/address/0x290120134219BA03C0ecd47fD35FeD6B10f03839) |
-| **PropertyTokenStaking** | `0x57f775299ADF622adc729d0e8854A99d657717Aa` | **PREPARED (Nonce 15)** | Deterministic CREATE Derivation |
+| **PropertyTokenStaking** | `0x57f775299ADF622adc729d0e8854A99d657717Aa` | **DEPLOYED & ACTIVE** | [MSTScan Address](https://mstscan.com/address/0x57f775299ADF622adc729d0e8854A99d657717Aa) |
 | **PropertyDocumentRegistry** | `0x681Ef61D12372e040EE5f6e058932818aA29407F` | **DEPLOYED & ACTIVE** | [MSTScan Address](https://mstscan.com/address/0x681Ef61D12372e040EE5f6e058932818aA29407F) |
 
 ### MST Testnet (`Chain ID: 91562037`)
@@ -67,6 +67,12 @@ Key innovations include:
    Hash: [`0x6590cddda19e1f1f9a48bafee31fb9fd44f3b5b18807f1d997fbc87a9973f623`](https://mstscan.com/tx/0x6590cddda19e1f1f9a48bafee31fb9fd44f3b5b18807f1d997fbc87a9973f623)  
    Block: `#21795280` · Gas: `194,643` · Fee: `0.000194643 MST` · Status: `SUCCESS`  
    *Parameters:* maxSupply = `1,500`, unitPrice = `100,000 paise` (₹1,000), transfersEnabled = `false`.
+
+4. **Transaction 3 — Deploy PropertyTokenStaking:**  
+   Hash: [`0x48be2da40d4771d893b937379f143a841b21ebda69b884e03bc681fca9fa1c6b`](https://mstscan.com/tx/0x48be2da40d4771d893b937379f143a841b21ebda69b884e03bc681fca9fa1c6b)  
+   Block: `#21798794` · Gas: `3,427,600` · Fee: `0.0034276 MST` · Status: `SUCCESS`  
+   *Parameters:* propertyToken = `0x290120134219BA03C0ecd47fD35FeD6B10f03839`, admin = `0xEF9fE181ed6659096895bb54f71487B67E3b262b`.  
+   *Address:* `0x57f775299ADF622adc729d0e8854A99d657717Aa` · *Bytecode:* `30,284` chars · Immutables & AccessControl verified on-chain.
 
 ### MST Testnet Full Lifecycle Transactions
 1. **Property Token Issuance (10 units):**  
