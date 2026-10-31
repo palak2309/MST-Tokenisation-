@@ -89,6 +89,11 @@ Key innovations include:
    Block: `#21799256` · Gas: `50,500` · Fee: `0.0000505 MST` · Status: `SUCCESS`  
    *Parameters:* tokenId = `1`, minLock = `0` (0-day flexible), maxLock = `31,536,000` (365d), active = `true`.
 
+8. **Transaction 7 — Whitelist Investor Account 3 (`setInvestorEligibility`):**  
+   Hash: [`0xe6ac23e26bf1896188ac5ba09f53c60a72aa6c047e77a7a9fcefcb8ebde7c153`](https://mstscan.com/tx/0xe6ac23e26bf1896188ac5ba09f53c60a72aa6c047e77a7a9fcefcb8ebde7c153)  
+   Block: `#21799311` · Gas: `48,984` · Fee: `0.000048984 MST` · Status: `SUCCESS`  
+   *Verification:* `isEligibleInvestor(0x120CdE3f7326C5689C8f7bE7163fD601b8C1DBc2) == true`.
+
 ### MST Testnet Full Lifecycle Transactions
 1. **Property Token Issuance (10 units):**  
    [`0x6340e0110af64b3aeeaf8fa812ed446b6a0af9cb08cb95e9260aadf11f6acb63`](https://testnet.mstscan.com/tx/0x6340e0110af64b3aeeaf8fa812ed446b6a0af9cb08cb95e9260aadf11f6acb63)

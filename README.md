@@ -153,6 +153,10 @@ Designed for regulatory compliance and fractional investor access, TokenEstate t
    - Tx Hash: [`0x89ee2863d518bb8d9f97e08885bb8c22211d6c1c471a333272d76ecea112ba0b`](https://mstscan.com/tx/0x89ee2863d518bb8d9f97e08885bb8c22211d6c1c471a333272d76ecea112ba0b)
    - Block: `#21799256` · Gas: `50,500` · Fee: `0.0000505 MST`
    - Details: Token ID #1 pool active with minLock: 0s (0-day flexible), maxLock: 31,536,000s (365 days).
+8. **Transaction 7 — Authorize Investor Account 3 Eligibility:**
+   - Tx Hash: [`0xe6ac23e26bf1896188ac5ba09f53c60a72aa6c047e77a7a9fcefcb8ebde7c153`](https://mstscan.com/tx/0xe6ac23e26bf1896188ac5ba09f53c60a72aa6c047e77a7a9fcefcb8ebde7c153)
+   - Block: `#21799311` · Gas: `48,984` · Fee: `0.000048984 MST`
+   - Details: `PropertyToken.setInvestorEligibility(0x120CdE3f7326C5689C8f7bE7163fD601b8C1DBc2, true)` verified.
 
 ### MST Testnet Verified Receipts
 1. **Token Minting (10 Units):**
