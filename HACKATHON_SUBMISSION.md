@@ -104,6 +104,11 @@ Key innovations include:
     Block: `#21799551` · Gas: `46,653` · Fee: `0.000046653 MST` · Status: `SUCCESS`  
     *Verification:* `isApprovedForAll(Account 3, 0x57f7...17Aa) == true`.
 
+11. **Transaction 10 — Investor Account 3 Staking Deposit (`stake`):**  
+    Hash: [`0x3fa5753947c1f942d5c11f071daca1a1d9817b6a3a7fd62b0723da9561e1325f`](https://mstscan.com/tx/0x3fa5753947c1f942d5c11f071daca1a1d9817b6a3a7fd62b0723da9561e1325f)  
+    Block: `#21800646` · Gas: `179,751` · Fee: `0.000179751 MST` · Status: `SUCCESS`  
+    *Verification:* `stakes(1, Account 3).amount == 10 Units` · Lock: 0-day flexible lock verified.
+
 ### MST Testnet Full Lifecycle Transactions
 1. **Property Token Issuance (10 units):**  
    [`0x6340e0110af64b3aeeaf8fa812ed446b6a0af9cb08cb95e9260aadf11f6acb63`](https://testnet.mstscan.com/tx/0x6340e0110af64b3aeeaf8fa812ed446b6a0af9cb08cb95e9260aadf11f6acb63)
