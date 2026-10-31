@@ -84,6 +84,11 @@ Key innovations include:
    Block: `#21799107` · Gas: `49,005` · Fee: `0.000049005 MST` · Status: `SUCCESS`  
    *Verification:* `isAuthorizedStakingContract(0x57f775299ADF622adc729d0e8854A99d657717Aa) == true`.
 
+7. **Transaction 6 — Configure Staking Pool #1 (`configurePool`):**  
+   Hash: [`0x89ee2863d518bb8d9f97e08885bb8c22211d6c1c471a333272d76ecea112ba0b`](https://mstscan.com/tx/0x89ee2863d518bb8d9f97e08885bb8c22211d6c1c471a333272d76ecea112ba0b)  
+   Block: `#21799256` · Gas: `50,500` · Fee: `0.0000505 MST` · Status: `SUCCESS`  
+   *Parameters:* tokenId = `1`, minLock = `0` (0-day flexible), maxLock = `31,536,000` (365d), active = `true`.
+
 ### MST Testnet Full Lifecycle Transactions
 1. **Property Token Issuance (10 units):**  
    [`0x6340e0110af64b3aeeaf8fa812ed446b6a0af9cb08cb95e9260aadf11f6acb63`](https://testnet.mstscan.com/tx/0x6340e0110af64b3aeeaf8fa812ed446b6a0af9cb08cb95e9260aadf11f6acb63)

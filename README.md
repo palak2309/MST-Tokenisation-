@@ -149,6 +149,10 @@ Designed for regulatory compliance and fractional investor access, TokenEstate t
    - Tx Hash: [`0xd3784e1d1942069079bc1f16a07b73eab601d8daac0352ac276ccf2a6dfb7a84`](https://mstscan.com/tx/0xd3784e1d1942069079bc1f16a07b73eab601d8daac0352ac276ccf2a6dfb7a84)
    - Block: `#21799107` · Gas: `49,005` · Fee: `0.000049005 MST`
    - Details: `PropertyToken.setStakingContractAuthorization(0x57f775299ADF622adc729d0e8854A99d657717Aa, true)` verified.
+7. **Transaction 6 — Configure Staking Pool #1:**
+   - Tx Hash: [`0x89ee2863d518bb8d9f97e08885bb8c22211d6c1c471a333272d76ecea112ba0b`](https://mstscan.com/tx/0x89ee2863d518bb8d9f97e08885bb8c22211d6c1c471a333272d76ecea112ba0b)
+   - Block: `#21799256` · Gas: `50,500` · Fee: `0.0000505 MST`
+   - Details: Token ID #1 pool active with minLock: 0s (0-day flexible), maxLock: 31,536,000s (365 days).
 
 ### MST Testnet Verified Receipts
 1. **Token Minting (10 Units):**
