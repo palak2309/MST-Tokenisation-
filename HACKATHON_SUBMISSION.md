@@ -94,6 +94,16 @@ Key innovations include:
    Block: `#21799311` · Gas: `48,984` · Fee: `0.000048984 MST` · Status: `SUCCESS`  
    *Verification:* `isEligibleInvestor(0x120CdE3f7326C5689C8f7bE7163fD601b8C1DBc2) == true`.
 
+9. **Transaction 8 — Investor Account 3 Demo Unit Purchase (`purchaseDemoUnits`):**  
+   Hash: [`0x8476d7f3d50423ca4f78159620f595d1abe86774d4de2ab1027b8b0c03fdf24d`](https://mstscan.com/tx/0x8476d7f3d50423ca4f78159620f595d1abe86774d4de2ab1027b8b0c03fdf24d)  
+   Block: `#21799542` · Gas: `108,683` · Fee: `0.000108683 MST` · Status: `SUCCESS`  
+   *Verification:* `balanceOf(Account 3, 1) == 10 Units` · `totalSupply(1) == 10 Units` · Remaining: `1490 Units`.
+
+10. **Transaction 9 — Investor Account 3 Staking Approval (`setApprovalForAll`):**  
+    Hash: [`0xca258151d689e87ade22212d94f1be554a009f6a7377b450e0b798348b3f974a`](https://mstscan.com/tx/0xca258151d689e87ade22212d94f1be554a009f6a7377b450e0b798348b3f974a)  
+    Block: `#21799551` · Gas: `46,653` · Fee: `0.000046653 MST` · Status: `SUCCESS`  
+    *Verification:* `isApprovedForAll(Account 3, 0x57f7...17Aa) == true`.
+
 ### MST Testnet Full Lifecycle Transactions
 1. **Property Token Issuance (10 units):**  
    [`0x6340e0110af64b3aeeaf8fa812ed446b6a0af9cb08cb95e9260aadf11f6acb63`](https://testnet.mstscan.com/tx/0x6340e0110af64b3aeeaf8fa812ed446b6a0af9cb08cb95e9260aadf11f6acb63)

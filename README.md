@@ -157,6 +157,14 @@ Designed for regulatory compliance and fractional investor access, TokenEstate t
    - Tx Hash: [`0xe6ac23e26bf1896188ac5ba09f53c60a72aa6c047e77a7a9fcefcb8ebde7c153`](https://mstscan.com/tx/0xe6ac23e26bf1896188ac5ba09f53c60a72aa6c047e77a7a9fcefcb8ebde7c153)
    - Block: `#21799311` · Gas: `48,984` · Fee: `0.000048984 MST`
    - Details: `PropertyToken.setInvestorEligibility(0x120CdE3f7326C5689C8f7bE7163fD601b8C1DBc2, true)` verified.
+9. **Transaction 8 — Investor Account 3 Demo Purchase (10 Units):**
+   - Tx Hash: [`0x8476d7f3d50423ca4f78159620f595d1abe86774d4de2ab1027b8b0c03fdf24d`](https://mstscan.com/tx/0x8476d7f3d50423ca4f78159620f595d1abe86774d4de2ab1027b8b0c03fdf24d)
+   - Block: `#21799542` · Gas: `108,683` · Fee: `0.000108683 MST`
+   - Details: Account 3 purchased 10 units of Token ID #1. Balance: 10 units. Total minted: 10 units.
+10. **Transaction 9 — Investor Account 3 Staking Approval:**
+    - Tx Hash: [`0xca258151d689e87ade22212d94f1be554a009f6a7377b450e0b798348b3f974a`](https://mstscan.com/tx/0xca258151d689e87ade22212d94f1be554a009f6a7377b450e0b798348b3f974a)
+    - Block: `#21799551` · Gas: `46,653` · Fee: `0.000046653 MST`
+    - Details: `setApprovalForAll(0x57f775299ADF622adc729d0e8854A99d657717Aa, true)` verified.
 
 ### MST Testnet Verified Receipts
 1. **Token Minting (10 Units):**
